@@ -56,7 +56,7 @@ toList (AList f) = f []
 -- Write a function that prepends an element to any AppendList, just like cons
 -- (written : ) does for lists
 alistCons :: a -> AppendList a -> AppendList a
-alistCons element (AList f) = AList ((\f x -> element:f x) f)
+alistCons element (AList f) = AList ((\x-> element:x).f)
 
 -- Write a replication function which makes an AppendList by repeating the given
 -- element for a given number of times (possibly zero times).
