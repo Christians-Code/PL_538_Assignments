@@ -56,7 +56,7 @@ toList (AList f) = f []
 -- Write a function that prepends an element to any AppendList, just like cons
 -- (written : ) does for lists
 alistCons :: a -> AppendList a -> AppendList a
-alistCons element (AList f) = AList (\x -> element:f[])
+alistCons element (AList f) = AList ((\f x -> element:f x) f)
 
 -- Write a replication function which makes an AppendList by repeating the given
 -- element for a given number of times (possibly zero times).
@@ -66,12 +66,13 @@ alistReplicate times element = AList (\x -> take times (repeat element))
 
 -- Write a function to append two AppendLists together.
 alistAppend :: AppendList a -> AppendList a -> AppendList a
-alistAppend (AList f1) (AList f2)= AList (\x -> f1[])
+alistAppend (AList f1) (AList f2) = AList (f1.f2)
 
 -- Write a concatenation function which takes a list of AppendLists and turns
 -- them into a single AppendList (preserving the order).
 alistConcat :: [AppendList a] -> AppendList a
-alistConcat (x:xs) = x
+alistConcat [] = empty
+alistConcat (x:xs) = foldl alistAppend x xs
 
 -- Write a function that does the opposite, converting a normal list into an
 -- AppendList
