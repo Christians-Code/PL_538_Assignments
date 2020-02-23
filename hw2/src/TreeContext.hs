@@ -50,18 +50,32 @@ data TreeContext a = TC { getContext :: Context a, getItem :: Tree a }
 -- position set to the root.
 
 contextOfTree :: Tree a -> TreeContext a
-contextOfTree = undefined
+contextOfTree (Node node_data children)= TC
+  {
+    getContext = Empty,
+    getItem = (Node node_data children)
+  }
 
 -- Write a function to convert a context back into a regular tree.
 -- (Hint: you'll want to recurse, calling contextToTree on a parent context.)
 
 contextToTree :: TreeContext a -> Tree a
-contextToTree = undefined
+contextToTree (TC {getContext = Empty, getItem = currentItem}) = currentItem
+contextToTree (TC { getContext = (Loc parent_data left_sibling parent_context right_sibling), getItem = currentItem}) = 
+  contextToTree (
+    TC {
+      getContext = parent_context,
+      getItem = (Node parent_data ((reverse left_sibling) ++ right_sibling))
+    }
+  )
 
 -- Write a function to get the subtree at the current position.
 
 getCurTree :: TreeContext a -> Tree a
-getCurTree = undefined
+getCurTree (TC { getContext = Empty, getItem = currentItem}) =
+  currentItem
+getCurTree (TC { getContext = (Loc parent_data left_sibling parent_context right_sibling), getItem = currentItem}) =
+  currentItem
 
 -- For trees, we can move the position in more directions. A left/right move
 -- corresponds to switching to one of the siblings of the current position,
@@ -73,22 +87,60 @@ getCurTree = undefined
 -- change. Your function should be total---it should never raise an error!
 
 moveLeftT :: TreeContext a -> TreeContext a
-moveLeftT = undefined
+moveLeftT (TC {getContext = Empty, getItem = currentItem}) = TC {getContext = Empty, getItem = currentItem}
+moveLeftT (TC { getContext = (Loc parent_data [] parent_context right_sibling), getItem = currentItem}) = 
+  TC{
+    getContext = (Loc parent_data [] parent_context right_sibling),
+    getItem = currentItem
+  }
+moveLeftT (TC { getContext = (Loc parent_data (x:xs) parent_context right_sibling), getItem = currentItem}) = 
+  TC{
+    getContext = (Loc parent_data xs parent_context (currentItem:right_sibling)),
+    getItem = x
+  }
+
 
 moveRightT :: TreeContext a -> TreeContext a
-moveRightT = undefined
+moveRightT (TC {getContext = Empty, getItem = currentItem}) = TC {getContext = Empty, getItem = currentItem}
+moveRightT (TC { getContext = (Loc parent_data left_sibling parent_context []), getItem = currentItem}) = 
+  TC{
+    getContext = (Loc parent_data left_sibling parent_context []),
+    getItem = currentItem
+  }
+moveRightT (TC { getContext = (Loc parent_data left_sibling parent_context (x:xs)), getItem = currentItem}) = 
+  TC{
+    getContext = (Loc parent_data (currentItem:left_sibling) parent_context xs),
+    getItem = x
+  }
 
 moveUpT :: TreeContext a -> TreeContext a
-moveUpT = undefined
+moveUpT (TC { getContext = Empty, getItem = currentItem}) = TC {getContext = Empty, getItem = currentItem}
+moveUpT (TC { getContext = (Loc parent_data left_sibling parent_context right_sibling), getItem = currentItem}) = 
+  TC {
+    getContext = parent_context,
+    getItem = (Node parent_data ((reverse left_sibling) ++ [currentItem] ++ right_sibling))
+  }
+
 
 moveDownT :: TreeContext a -> TreeContext a
-moveDownT = undefined
+moveDownT (TC {getContext = curr_context, getItem = (Node node_data [])}) = (TC {getContext = curr_context, getItem = (Node node_data [])})
+moveDownT (TC {getContext = curr_context, getItem = (Node node_data (x:xs))}) = 
+  TC {
+    getContext = Loc node_data [] curr_context xs,
+    getItem = x
+  }
 
 -- Write a function to replace the tree at the current position in the context
 -- with a new subtree. Again, your function should never raise an error!
 
 updateT :: Tree a -> TreeContext a -> TreeContext a
-updateT = undefined
+updateT subTree (TC { getContext = Empty, getItem = currentItem}) = TC {getContext = Empty, getItem = subTree}
+updateT subTree (TC { getContext = (Loc parent_data left_sibling parent_context right_siblings), getItem = currentItem}) = 
+  TC{
+    getContext = (Loc parent_data left_sibling parent_context right_siblings),
+    getItem = subTree
+  }
+
 
 -- Write a function to insert a new subtree into the context. There are three
 -- possible places to insert: left (as a new sibling before the current
@@ -99,13 +151,27 @@ updateT = undefined
 -- should never raise an error!
 
 insertLeftT :: Tree a -> TreeContext a -> TreeContext a
-insertLeftT = undefined
+insertLeftT subTree (TC { getContext = Empty, getItem = currentItem}) = TC {getContext = Empty, getItem = currentItem}
+insertLeftT subTree (TC { getContext = (Loc parent_data left_sibling parent_context right_siblings), getItem = currentItem}) = 
+  moveLeftT TC{
+    getContext = (Loc parent_data (subTree:left_sibling) parent_context right_siblings),
+    getItem = currentItem
+  }
 
 insertRightT :: Tree a -> TreeContext a -> TreeContext a
-insertRightT = undefined
+insertRightT subTree (TC { getContext = Empty, getItem = currentItem}) = TC {getContext = Empty, getItem = currentItem}
+insertRightT subTree (TC { getContext = (Loc parent_data left_sibling parent_context right_siblings), getItem = currentItem}) = 
+  moveRightT TC{
+    getContext = (Loc parent_data left_sibling parent_context (subTree:right_siblings)),
+    getItem = currentItem
+  }
 
 insertDownT :: Tree a -> TreeContext a -> TreeContext a
-insertDownT = undefined
+insertDownT subTree (TC { getContext = currentContext, getItem = (Node node_data node_children)}) = 
+  moveDownT TC{
+    getContext = currentContext,
+    getItem = (Node node_data (subTree:node_children))
+  }
 
 -- Write a function to delete the whole subtree at the current position from the
 -- context. The final position of the context should be (in decreasing priority)
@@ -116,8 +182,22 @@ insertDownT = undefined
 -- root node should return the original context.
 
 deleteT :: TreeContext a -> TreeContext a
-deleteT = undefined
-
+deleteT (TC { getContext = Empty, getItem = currentItem}) = contextOfTree currentItem
+deleteT (TC { getContext = (Loc parent_data [] parent_context []), getItem = currentItem}) = 
+  TC{
+    getContext = parent_context,
+    getItem = (Node parent_data [])
+  }
+deleteT (TC { getContext = (Loc parent_data (x:xs) parent_context []), getItem = currentItem}) = 
+  TC{
+    getContext = (Loc parent_data xs parent_context []),
+    getItem = x
+  }
+deleteT (TC { getContext = (Loc parent_data left_sibling parent_context (x:xs)), getItem = currentItem}) = 
+  TC{
+    getContext = (Loc parent_data left_sibling parent_context xs),
+    getItem = x
+  }
 -- If you would like to change the starting context that the main function of
 -- this program, change the definition below.
 
