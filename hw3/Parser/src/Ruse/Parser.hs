@@ -89,13 +89,20 @@ instance Monad Parser where
 -- Define the return operation, which gives a parser that always yields the
 -- given value of type a without changing the parse state.
 pReturn :: a -> Parser a
-pReturn x = undefined
+pReturn x = MkParser $ \state ->
+              (state, ParseOK x)
 
 -- Define the bind operation for Parsers. This should run the first parser, and
 -- look at the result. If the result is an error, the second parser should be
 -- ignored. Otherwise, use the first result to choose which parser to run next.
 pBind :: Parser a -> (a -> Parser b) -> Parser b
-pBind p f = undefined
+pBind p f = MkParser $ \state ->
+              case runParser p state of
+                (st, ParseError e) -> (st, ParseError e)  
+                (st, ParseOK x) -> let p' = f x
+                                    in runParser p' st
+                 
+
 
 -- The second way to combine two parsers is to try the first parser, or the
 -- second parser. This pattern is modeled by the Alternative typeclass.
@@ -122,7 +129,14 @@ pFail fnd ext = MkParser $ \st -> (st, ParseError $ MkPError (stOffset st) (Just
 -- then use the provided function mergeErrors to combine the two resulting
 -- errors and states. (You will be using this operation a lot.)
 pPlus :: Parser a -> Parser a -> Parser a
-pPlus p1 p2 = undefined
+pPlus p1 p2 = MkParser $ \state ->
+                case runParser p1 state of
+                  (st, ParseError e) -> case runParser p2 state of
+                                          (st', ParseError e') -> let combined = mergeErrors (st, e) (st', e') in
+                                                                    (fst combined, ParseError $ snd combined)
+                                          (st', ParseOK x) -> (st', ParseOK x)
+                  (st, ParseOK x) -> (st, ParseOK x)
+
 
 mergeErrors :: (PState, PError) -> (PState, PError) -> (PState, PError)
 mergeErrors (st1, e1) (st2, e2)
@@ -207,13 +221,18 @@ parseTest p input =
 --
 -- https://hackage.haskell.org/package/parser-combinators-1.2.1/docs/Control-Monad-Combinators.html
 token :: (Char -> Bool) -> [ErrorChunk] -> Parser Char
-token predicate ex = undefined
+token predicate ex = MkParser $ \state ->
+                      case state of
+                        MkPState [] offset -> (state, ParseError (MkPError offset (Just EndOfInput) ex))
+                        MkPState (x:xs) offset -> if predicate x
+                                                  then ((MkPState xs (offset+1)), (ParseOK x))
+                                                  else (state, ParseError (MkPError offset (Just $ Chunk [x]) ex))
 
 -- Use token to define single, which parses exactly the given character from the
 -- front of the string. Just like token, it's fine if the input string contains
 -- more characters.
 single :: Char -> Parser Char
-single c = undefined
+single c = token (== c) [Chunk [c]]
 
 -- GHCI TEST: parseTest (single 'a') "a" === Just 'a'
 -- GHCI TEST: parseTest (single 'a') "ab" === Just 'a'
@@ -227,7 +246,10 @@ single c = undefined
 
 -- eof succeeds exactly when the remaining string is empty, otherwise it fails.
 eof :: Parser ()
-eof = undefined
+eof = MkParser $ \state ->
+        case state of
+          MkPState [] offset -> (state, ParseOK ())
+          MkPState (x:xs) offset -> (state, ParseError $ MkPError offset (Just $ Chunk [x]) [])
 
 -- GHCI TEST: parseTest eof "" === Just ()
 -- GHCI TEST: parseTest eof "nonempty" === Nothing
@@ -243,14 +265,14 @@ chunk cs = MkParser $ \st ->
 --
 -- (Hint: try using token. You can use an empty list of expected characters.)
 satisfy :: (Char -> Bool) -> Parser Char
-satisfy predicate = undefined
+satisfy predicate = token predicate []
 
 -- GHCI TEST: parseTest (satisfy (`elem` "aeiou")) "a" === Just 'a'
 -- GHCI TEST: parseTest (satisfy (`elem` "aeiou")) "z" === Nothing
 
 -- oneOf parses any one in a list of characters
 oneOf :: String -> Parser Char
-oneOf cs = undefined
+oneOf cs = token (`elem` cs) [Chunk cs]
 
 -- A few special parsers will be useful for parsing our language. First, we
 -- parsers for space characters. space parses a single space character.
@@ -261,20 +283,20 @@ space = oneOf [' ', '\t', '\r', '\n']
 --
 -- (Hint: try the `skipMany` combinator.)
 optSpaces :: Parser ()
-optSpaces = undefined
+optSpaces = skipMany space
 
 -- Define a parser spaces that parses one or more spaces.
 --
 -- (Hint: try the `skipSome` combinator.)
 spaces :: Parser ()
-spaces = undefined
+spaces = skipSome space
 
 -- Define a parser symbol that parses a given string, followed by zero or more
 -- spaces. The target string should be returned, and the spaces should be
 -- discarded. This combinator is useful when the target string is a symbol, and
 -- no spaces are needed afterwards.
 symbol :: String -> Parser String
-symbol sym = undefined
+symbol sym = chunk sym <* optSpaces
 
 -- GHCI TEST: parseTest (symbol "bobcat") "bobcat  " === Just "bobcat"
 -- GHCI TEST: parseTest (symbol "bobcat") "bobcat" === Just "bobcat"
@@ -286,7 +308,7 @@ symbol sym = undefined
 -- where there must be at least one space afterwards to separate it from the
 -- next character.
 keyword :: String -> Parser String
-keyword kw = undefined
+keyword kw = chunk kw <* spaces
 
 -- GHCI TEST: parseTest (keyword "bobcat") "bobcat  " === Just "bobcat"
 -- GHCI TEST: parseTest (keyword "bobcat") "bobcat" === Nothing
