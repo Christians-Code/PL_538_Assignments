@@ -336,10 +336,14 @@ digitsToInt = foldl (\cur new -> 10 * cur + new) 0
 --
 -- (Hint: a number is some digits, or a "-" followed by some digits.)
 
+negative_number :: Parser Int
+negative_number = do
+                    sign <- single '-'
+                    list <- some digit
+                    return ((-1) * digitsToInt list)
 
 number :: Parser Int
---number = (* (-1)) <$> digitsToInt <$> some digit
-number = (* (-1)) <$> digitsToInt <$> some digit
+number = negative_number <|> (digitsToInt <$> some digit)
 
 
 -- GHCI TEST: parseTest number "12345" === Just 12345
