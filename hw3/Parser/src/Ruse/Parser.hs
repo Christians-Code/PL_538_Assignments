@@ -462,8 +462,8 @@ parseRExpr' gctx ctx =  parseNumC
                     <|> parseCdr gctx ctx
                     <|> parseVar gctx ctx
                     <|> parseLam gctx ctx
+                    <|> parseApp gctx ctx
                     <|> parseRec gctx ctx
-                    <|> undefined -- other cases
 
 parseNumC :: Parser RExpr
 parseNumC = do
@@ -651,10 +651,10 @@ parseCar gctx ctx = do
                       optSpaces
                       chunk "car"
                       spaces
-                      e1 <- parseRExpr' gctx ctx
+                      e <- parseRExpr' gctx ctx
                       optSpaces
                       single ')'
-                      return (Car e1)
+                      return (Car e)
                       
 parseCdr :: Globals -> Context -> Parser RExpr
 parseCdr gctx ctx = do
@@ -662,10 +662,10 @@ parseCdr gctx ctx = do
                       optSpaces
                       chunk "cdr"
                       spaces
-                      e1 <- parseRExpr' gctx ctx
+                      e <- parseRExpr' gctx ctx
                       optSpaces
                       single ')'
-                      return (Cdr e1)
+                      return (Cdr e)
 
 -- Parse a variable, using the global context to unfold global definitions and
 -- using the local context to look up local variable names. You probably don't
@@ -691,7 +691,28 @@ parseVar gctx ctx = do
 -- local context. (You should not change the global context in this file.)
 -- Finally, you will parse zero-or-more spaces and then ")".
 parseLam :: Globals -> Context -> Parser RExpr
-parseLam gctx ctx = undefined
+parseLam gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "lambda"
+                      spaces
+                      v <- ident
+                      spaces
+                      e <- parseRExpr' gctx (v:ctx)
+                      optSpaces
+                      single ')'
+                      return (Lam e)
+
+parseApp :: Globals -> Context -> Parser RExpr
+parseApp gctx ctx = do
+                      single '('
+                      optSpaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (App e1 e2) 
 
 parseRec :: Globals -> Context -> Parser RExpr
 parseRec gctx ctx = snd <$> parseDef gctx ctx
@@ -718,4 +739,15 @@ parseRec gctx ctx = snd <$> parseDef gctx ctx
 --
 -- your parser should produce ("foo", Rec (NumC 5)).
 parseDef :: Globals -> Context -> Parser (String, RExpr)
-parseDef gctx ctx = undefined
+parseDef gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "define"
+                      spaces
+                      v <- ident
+                      spaces
+                      e <- parseRExpr' gctx (v:ctx)
+                      optSpaces
+                      single ')'
+                      return (v, Rec e)
+                      

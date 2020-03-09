@@ -32,4 +32,15 @@ repl gctx = do
   putStr "RusEPL> "
   hFlush stdout
   input <- getLine
-  undefined
+  case (parse (parseDef gctx []) input) of
+    ParseOK (v, d) -> let new_gctx = insert v d gctx in
+                        repl new_gctx
+    ParseError e -> case (parse (parseRExpr gctx) input) of
+                      ParseOK x -> case eval x of
+                                    Left err -> putStrLn err
+                                    Right x -> putStrLn (ppRExpr x)
+                      ParseError e -> putStrLn "fail parse"
+  
+  repl gctx
+  
+
