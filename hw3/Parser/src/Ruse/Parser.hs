@@ -446,22 +446,226 @@ parseRExpr' gctx ctx =  parseNumC
                     <|> parseBoolC
                     <|> parseStrC
                     <|> parsePlus gctx ctx
+                    <|> parseSubt gctx ctx
+                    <|> parseMult gctx ctx
+                    <|> parseIfte gctx ctx
+                    <|> parseAnd gctx ctx
+                    <|> parseOr gctx ctx
+                    <|> parseNot gctx ctx
+                    <|> parseIsEq gctx ctx
+                    <|> parseIsLt gctx ctx
+                    <|> parseIsGt gctx ctx
+                    <|> parseIsNil gctx ctx
+                    <|> parseList gctx ctx
+                    <|> parseCons gctx ctx
+                    <|> parseCar gctx ctx
+                    <|> parseCdr gctx ctx
                     <|> parseVar gctx ctx
                     <|> parseLam gctx ctx
                     <|> parseRec gctx ctx
                     <|> undefined -- other cases
 
 parseNumC :: Parser RExpr
-parseNumC = undefined
+parseNumC = do
+              v <- number
+              return (NumC v)
 
 parseBoolC :: Parser RExpr
-parseBoolC = undefined
+parseBoolC = do
+              v <- boolean
+              return (BoolC v)
 
 parseStrC :: Parser RExpr
-parseStrC = undefined
+parseStrC = do
+              v <- string
+              return (StrC v)
 
 parsePlus :: Globals -> Context -> Parser RExpr
-parsePlus gctx ctx = undefined
+parsePlus gctx ctx = do
+                      single '('
+                      optSpaces
+                      single '+'
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (Plus e1 e2)
+
+parseSubt :: Globals -> Context -> Parser RExpr
+parseSubt gctx ctx = do
+                      single '('
+                      optSpaces
+                      single '-'
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (Subt e1 e2)
+
+parseMult :: Globals -> Context -> Parser RExpr
+parseMult gctx ctx = do
+                      single '('
+                      optSpaces
+                      single '*'
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (Mult e1 e2)
+
+parseIfte :: Globals -> Context -> Parser RExpr
+parseIfte gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "if"
+                      spaces
+                      b1 <- parseRExpr' gctx ctx
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (Ifte b1 e1 e2)
+
+parseAnd :: Globals -> Context -> Parser RExpr
+parseAnd gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "and"
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (And e1 e2)
+
+parseOr :: Globals -> Context -> Parser RExpr
+parseOr gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "or"
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (Or e1 e2)
+
+parseNot :: Globals -> Context -> Parser RExpr
+parseNot gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "not"
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (Not e1)                      
+
+parseIsEq :: Globals -> Context -> Parser RExpr
+parseIsEq gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "eq?"
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (IsEq e1 e2)
+
+parseIsLt :: Globals -> Context -> Parser RExpr
+parseIsLt gctx ctx = do
+                      single '('
+                      optSpaces
+                      single '<'
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (IsLt e1 e2)
+
+parseIsGt :: Globals -> Context -> Parser RExpr
+parseIsGt gctx ctx = do
+                      single '('
+                      optSpaces
+                      single '>'
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (IsGt e1 e2)
+
+parseIsNil :: Globals -> Context -> Parser RExpr
+parseIsNil gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "nil?"
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (IsNil e1)     
+                      
+parseList :: Globals -> Context -> Parser RExpr
+parseList gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "list"
+                      spaces
+                      e <- sepBy1 (parseRExpr' gctx ctx) spaces
+                      optSpaces
+                      single ')'
+                      return (List e)     
+
+parseCons :: Globals -> Context -> Parser RExpr
+parseCons gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "cons"
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      spaces
+                      e2 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (Cons e1 e2)    
+                      
+parseCar :: Globals -> Context -> Parser RExpr
+parseCar gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "car"
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (Car e1)
+                      
+parseCdr :: Globals -> Context -> Parser RExpr
+parseCdr gctx ctx = do
+                      single '('
+                      optSpaces
+                      chunk "cdr"
+                      spaces
+                      e1 <- parseRExpr' gctx ctx
+                      optSpaces
+                      single ')'
+                      return (Cdr e1)
 
 -- Parse a variable, using the global context to unfold global definitions and
 -- using the local context to look up local variable names. You probably don't
