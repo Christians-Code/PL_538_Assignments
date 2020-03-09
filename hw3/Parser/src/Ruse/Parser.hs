@@ -339,6 +339,7 @@ digitsToInt = foldl (\cur new -> 10 * cur + new) 0
 negative_number :: Parser Int
 negative_number = do
                     sign <- single '-'
+                    optSpaces
                     list <- some digit
                     return ((-1) * digitsToInt list)
 
