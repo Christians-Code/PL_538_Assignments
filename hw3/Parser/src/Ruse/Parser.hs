@@ -354,7 +354,7 @@ number = negative_number <|> (digitsToInt <$> some digit)
 --
 -- (Hint: try the `between` combinator.)
 string :: Parser String
-string = between (single '"') (single '"') (some (satisfy isAlpha))
+string = between (single '"') (single '"') (many (satisfy isAlpha))
 
 --
 -- Parsing Ruse
