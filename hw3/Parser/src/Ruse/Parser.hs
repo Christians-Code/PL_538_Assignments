@@ -302,6 +302,11 @@ symbol sym = chunk sym <* optSpaces
 -- GHCI TEST: parseTest (symbol "bobcat") "bobcat" === Just "bobcat"
 -- GHCI TEST: parseTest (symbol "bobcat") "bob" === Nothing
 
+-- Helper for detecting optional spaces before a symbol
+symbol1 :: String -> Parser String
+symbol1 sym = optSpaces *> chunk sym 
+
+
 -- Define a parser keyword that parses a given string, followed by one or more
 -- spaces. The target string should be returned, the spaces should be discarded.
 -- This combinator is useful when the target string is a keyword of some kind,
@@ -338,8 +343,7 @@ digitsToInt = foldl (\cur new -> 10 * cur + new) 0
 
 negative_number :: Parser Int
 negative_number = do
-                    sign <- single '-'
-                    optSpaces
+                    sign <- symbol "-"
                     list <- some digit
                     return ((-1) * digitsToInt list)
 
@@ -457,6 +461,7 @@ parseRExpr' gctx ctx =  parseNumC
                     <|> parseIsLt gctx ctx
                     <|> parseIsGt gctx ctx
                     <|> parseIsNil gctx ctx
+                    <|> parseEmptyList gctx ctx
                     <|> parseList gctx ctx
                     <|> parseCons gctx ctx
                     <|> parseCar gctx ctx
@@ -483,189 +488,150 @@ parseStrC = do
 
 parsePlus :: Globals -> Context -> Parser RExpr
 parsePlus gctx ctx = do
-                      single '('
-                      optSpaces
-                      single '+'
-                      spaces
+                      symbol "("
+                      keyword "+"
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Plus e1 e2)
 
 parseSubt :: Globals -> Context -> Parser RExpr
 parseSubt gctx ctx = do
-                      single '('
-                      optSpaces
-                      single '-'
-                      spaces
+                      symbol "("
+                      keyword "-"
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Subt e1 e2)
 
 parseMult :: Globals -> Context -> Parser RExpr
 parseMult gctx ctx = do
-                      single '('
-                      optSpaces
-                      single '*'
-                      spaces
+                      symbol "("
+                      keyword "*"
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Mult e1 e2)
 
 parseIfte :: Globals -> Context -> Parser RExpr
 parseIfte gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "if"
-                      spaces
+                      symbol "("
+                      keyword "if"
                       b1 <- parseRExpr' gctx ctx
                       spaces
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Ifte b1 e1 e2)
 
 parseAnd :: Globals -> Context -> Parser RExpr
 parseAnd gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "and"
-                      spaces
+                      symbol "("
+                      keyword "and"
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (And e1 e2)
 
 parseOr :: Globals -> Context -> Parser RExpr
 parseOr gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "or"
-                      spaces
+                      symbol "("
+                      keyword "or"
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Or e1 e2)
 
 parseNot :: Globals -> Context -> Parser RExpr
 parseNot gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "not"
-                      spaces
+                      symbol "("
+                      keyword "not"
                       e1 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Not e1)                      
 
 parseIsEq :: Globals -> Context -> Parser RExpr
 parseIsEq gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "eq?"
-                      spaces
+                      symbol "("
+                      keyword "eq?"
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (IsEq e1 e2)
 
 parseIsLt :: Globals -> Context -> Parser RExpr
 parseIsLt gctx ctx = do
-                      single '('
-                      optSpaces
-                      single '<'
-                      spaces
+                      symbol "("
+                      keyword "<"
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (IsLt e1 e2)
 
 parseIsGt :: Globals -> Context -> Parser RExpr
 parseIsGt gctx ctx = do
-                      single '('
-                      optSpaces
-                      single '>'
-                      spaces
+                      symbol "("
+                      keyword ">"
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (IsGt e1 e2)
 
 parseIsNil :: Globals -> Context -> Parser RExpr
 parseIsNil gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "nil?"
-                      spaces
+                      symbol "("
+                      keyword "nil?"
                       e1 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (IsNil e1)     
+
+parseEmptyList :: Globals -> Context -> Parser RExpr
+parseEmptyList gctx ctx = do
+                          single '('
+                          single ')'
+                          return (List [])                      
                       
 parseList :: Globals -> Context -> Parser RExpr
 parseList gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "list"
-                      spaces
+                      symbol "("
+                      keyword "list"
                       e <- sepBy1 (parseRExpr' gctx ctx) spaces
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (List e)     
 
 parseCons :: Globals -> Context -> Parser RExpr
 parseCons gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "cons"
-                      spaces
+                      symbol "("
+                      keyword "cons"
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Cons e1 e2)    
                       
 parseCar :: Globals -> Context -> Parser RExpr
 parseCar gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "car"
-                      spaces
+                      symbol "("
+                      keyword "car"
                       e <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Car e)
                       
 parseCdr :: Globals -> Context -> Parser RExpr
 parseCdr gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "cdr"
-                      spaces
+                      symbol "("
+                      keyword "cdr"
                       e <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Cdr e)
 
 -- Parse a variable, using the global context to unfold global definitions and
@@ -693,26 +659,21 @@ parseVar gctx ctx = do
 -- Finally, you will parse zero-or-more spaces and then ")".
 parseLam :: Globals -> Context -> Parser RExpr
 parseLam gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "lambda"
-                      spaces
+                      symbol "("
+                      keyword "lambda"
                       v <- ident
                       spaces
                       e <- parseRExpr' gctx (v:ctx)
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (Lam e)
 
 parseApp :: Globals -> Context -> Parser RExpr
 parseApp gctx ctx = do
-                      single '('
-                      optSpaces
+                      symbol "("
                       e1 <- parseRExpr' gctx ctx
                       spaces
                       e2 <- parseRExpr' gctx ctx
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (App e1 e2) 
 
 parseRec :: Globals -> Context -> Parser RExpr
@@ -741,14 +702,11 @@ parseRec gctx ctx = snd <$> parseDef gctx ctx
 -- your parser should produce ("foo", Rec (NumC 5)).
 parseDef :: Globals -> Context -> Parser (String, RExpr)
 parseDef gctx ctx = do
-                      single '('
-                      optSpaces
-                      chunk "define"
-                      spaces
+                      symbol "("
+                      keyword "define"
                       v <- ident
                       spaces
                       e <- parseRExpr' gctx (v:ctx)
-                      optSpaces
-                      single ')'
+                      symbol1 ")"
                       return (v, Rec e)
                       
