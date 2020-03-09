@@ -314,9 +314,15 @@ keyword kw = chunk kw <* spaces
 -- GHCI TEST: parseTest (keyword "bobcat") "bobcat" === Nothing
 -- GHCI TEST: parseTest (keyword "bobcat") "bob" === Nothing
 
+bool_helper :: String -> Bool
+bool_helper str = if str == "#t"
+                  then True
+                  else False
+
 -- Define a parser to parse "#t" or "#f" into a Bool.
 boolean :: Parser Bool
-boolean = undefined
+boolean = bool_helper <$> ((chunk "#t") <|> (chunk "#f"))
+
 
 -- Now, we'll build parsers for digits into Ints
 digit :: Parser Int
@@ -329,8 +335,12 @@ digitsToInt = foldl (\cur new -> 10 * cur + new) 0
 -- numbers (possibly starting with "-") into an integer.
 --
 -- (Hint: a number is some digits, or a "-" followed by some digits.)
+
+
 number :: Parser Int
-number = undefined
+--number = (* (-1)) <$> digitsToInt <$> some digit
+number = (* (-1)) <$> digitsToInt <$> some digit
+
 
 -- GHCI TEST: parseTest number "12345" === Just 12345
 -- GHCI TEST: parseTest number "-42" === Just (-42)
@@ -340,7 +350,7 @@ number = undefined
 --
 -- (Hint: try the `between` combinator.)
 string :: Parser String
-string = undefined
+string = between (single '"') (single '"') (some (satisfy isAlpha))
 
 --
 -- Parsing Ruse
