@@ -46,22 +46,29 @@ pub struct Stack(Vec<Item>);
 impl Stack {
     // Make a new Stack
     pub fn new() -> Self {
-        todo!()
+        let vec: Vec<Item> = Vec::new();
+        return Stack(vec);
     }
 
     // Check if a Stack is empty
     pub fn empty(&self) -> bool {
-        todo!()
+        return self.0.len() == 0;
     }
 
     // Push an item onto a stack (should never error)
-    pub fn push(&mut self, _item: Item) -> Result<()> {
-        todo!()
+    pub fn push(&mut self, item: Item) -> Result<()> {
+        self.0.push(item);
+        return Ok(());
     }
 
     // Pop an item off the Stack; may result in Empty error
     pub fn pop(&mut self) -> Result<Item> {
-        todo!()
+        let pop_element = self.0.pop();
+        match pop_element{
+            Some(val) => return Ok(val),
+            None => return Err(Error::Empty)
+        }
+
     }
 
     /*
@@ -71,7 +78,73 @@ impl Stack {
      *
      * Hint: You'll probably want to use the "question-mark" syntax quite a bit; see `rpn.md`.
      */
-    pub fn eval(&mut self, _op: Op) -> Result<()> {
-        todo!()
+    pub fn eval(&mut self, op: Op) -> Result<()> {
+        match op{
+            Op::Add => {
+                let x = self.pop()?;
+                match x{
+                    Item::Int(val_x) => {
+                        let y = self.pop()?;
+                        match y{
+                            Item::Int(val_y) => return self.push(Item::Int(val_x + val_y)),
+                            _ => return Err(Error::Type)
+                        }
+                    },
+                    _ => return Err(Error::Type)
+                }
+            },
+            Op::Eq => {
+                let x = self.pop()?;
+                match x{
+                    Item::Int(val_x) => {
+                        let y = self.pop()?;
+                        match y{
+                            Item::Int(val_y) => return self.push(Item::Bool(val_x == val_y)),
+                            _ => return Err(Error::Type)
+                        }
+                    },
+                    Item::Bool(val_x) => {
+                        let y = self.pop()?;
+                        match y{
+                            Item::Bool(val_y) => return self.push(Item::Bool(val_x == val_y)),
+                            _ => return Err(Error::Type)
+                        }
+                    }
+                }
+
+            },
+            Op::Neg => {
+                let x = self.pop()?;
+                match x{
+                    Item::Bool(val_x) => return self.push(Item::Bool(!val_x)),
+                    _ => return Err(Error::Type)
+                }
+            },
+            Op::Swap => {
+                let x = self.pop()?;
+                let y = self.pop()?;
+                self.push(y)?;
+                return self.push(x);
+            },
+            Op::Rand => {
+                return Err(Error::Quit)
+            },
+            Op::Cond => {
+                let x = self.pop()?;
+                let y = self.pop()?;
+                let z = self.pop()?;
+                match z{
+                    Item::Bool(val_z) => {
+                        
+                        match val_z{
+                            true => return self.push(y),
+                            false => return self.push(x)
+                        }
+                    },
+                    _ => return Err(Error::Type)
+                }
+            },
+            Op::Quit => return Err(Error::Quit)
+        }
     }
 }
