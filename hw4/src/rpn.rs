@@ -127,7 +127,15 @@ impl Stack {
                 return self.push(x);
             },
             Op::Rand => {
-                return Err(Error::Quit)
+                let x = self.pop()?;
+                match x{
+                    Item::Int(val_x) => {
+                        let random_number = rand::random::<i32>().abs();
+                        let number_in_range = random_number % val_x;
+                        return self.push(Item::Int(number_in_range));
+                    },
+                    _ => return Err(Error::Type)
+                }
             },
             Op::Cond => {
                 let x = self.pop()?;
