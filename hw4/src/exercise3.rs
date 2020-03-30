@@ -24,7 +24,7 @@ mod tests {
     #[test]
     fn test_sieve() {
         let primes_twelve = vec![2, 3, 5, 7, 11];
-        
+
         assert_eq!(sieve(12), primes_twelve);
     }
 }

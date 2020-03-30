@@ -37,43 +37,30 @@ mod tests {
 
     #[test]
     fn test_mat_mult() {
-        let mat1 = vec![
-                     vec![ 2, 3 ],
-                     vec![ 1, 4 ], ]; 
-        let mat2 = vec![
-                     vec![ 7, 3 ],
-                     vec![ 1, 9 ], ]; 
-        let mat3 = vec![
-                     vec![ 3, 23 ],
-                     vec![ 5, 71 ], ]; 
-        let mat4 = vec![
-                     vec![ 7, 18 ],
-                     vec![ 6, 19 ], ];
+        let mat1 = vec![vec![2, 3], vec![1, 4]];
+        let mat2 = vec![vec![7, 3], vec![1, 9]];
+        let mat3 = vec![vec![3, 23], vec![5, 71]];
+        let mat4 = vec![vec![7, 18], vec![6, 19]];
 
-        let mat5 = vec![
-                     vec![ 1 ],
-                     vec![ 2 ], ];
+        let mat5 = vec![vec![1], vec![2]];
 
-        let mat6 = vec![
-                     vec![ 8 ],
-                     vec![ 9 ], ];
-        
+        let mat6 = vec![vec![8], vec![9]];
+
         assert_eq!(&mat_mult(&mat1, &mat1), &mat4);
         assert_eq!(&mat_mult(&mat1, &mat5), &mat6);
         assert_eq!(mat_mult(&mat1, &mat2), mat_mult(&mat2, &mat1));
-        assert_eq!(mat_mult(&mat_mult(&mat1, &mat2), &mat3), mat_mult(&mat1, &mat_mult(&mat2, &mat3)));
+        assert_eq!(
+            mat_mult(&mat_mult(&mat1, &mat2), &mat3),
+            mat_mult(&mat1, &mat_mult(&mat2, &mat3))
+        );
     }
 
     #[should_panic]
     #[test]
     fn test_mat_mult_bad() {
-        let mat1 = vec![
-                     vec![ 2, 3 ],
-                     vec![ 1, 4 ], ]; 
+        let mat1 = vec![vec![2, 3], vec![1, 4]];
 
-        let mat2 = vec![
-                     vec![ 1 ],
-                     vec![ 2 ], ];
+        let mat2 = vec![vec![1], vec![2]];
 
         mat_mult(&mat2, &mat1);
     }

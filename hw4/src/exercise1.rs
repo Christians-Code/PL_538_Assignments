@@ -13,38 +13,38 @@
  */
 
 /// Compute the sum of a vector of integers
-pub fn sum(vs: &Vec<i32>) -> i32 {
+pub fn sum(vs: &[i32]) -> i32 {
     let mut result = 0;
-    for each in vs{
-        result = result + (*each);
+    for each in vs {
+        result += *each;
     }
 
-    return result;
+    result
 }
 
 /// Return a copy of the input vector, keeping only the first copy of each element.
-pub fn dedup(vs: &Vec<i32>) -> Vec<i32> {
+pub fn dedup(vs: &[i32]) -> Vec<i32> {
     let mut vec = Vec::new();
-    for each in vs{
-        if vec.contains(each) != true{
+    for each in vs {
+        if !vec.contains(each) {
             vec.push(*each);
         }
     }
 
-    return vec;
+    vec
 }
 
 /// Return a copy of the input vector keeping only elements where the predicate is true. The order
 /// of elements should not be changed.
-pub fn filter(vs: &Vec<i32>, pred: &dyn Fn(i32) -> bool) -> Vec<i32> {
+pub fn filter(vs: &[i32], pred: &dyn Fn(i32) -> bool) -> Vec<i32> {
     let mut vec = Vec::new();
-    for each in vs{
-        if pred(*each) == true{
+    for each in vs {
+        if pred(*each) {
             vec.push(*each);
         }
     }
 
-    return vec;
+    vec
 }
 
 /// You can put more tests here.
@@ -67,6 +67,6 @@ mod tests {
     #[test]
     fn test_filter() {
         let vs = vec![5, 4, 3, 2, 1, 2, 3, 4, 5];
-        assert_eq!(filter(&vs, &|i:i32| { i % 2 == 1 }), [5, 3, 1, 3, 5]);
+        assert_eq!(filter(&vs, &|i: i32| { i % 2 == 1 }), [5, 3, 1, 3, 5]);
     }
 }

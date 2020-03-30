@@ -36,7 +36,7 @@ pub fn rpn_repl() -> rpn::Result<()> {
     }
 }
 
-fn evaluate_line(stack: &mut rpn::Stack, buf: &String) -> rpn::Result<()> {
+fn evaluate_line(stack: &mut rpn::Stack, buf: &str) -> rpn::Result<()> {
     // Trim whitespace and split; this gives an iterator of tokens.
     let tokens = buf.trim().split_whitespace();
 
@@ -49,60 +49,45 @@ fn evaluate_line(stack: &mut rpn::Stack, buf: &String) -> rpn::Result<()> {
     for tok in tokens {
         let bool_res = tok.parse::<bool>();
         match bool_res {
-            Ok(bool_val) => {
-                match stack.push(rpn::Item::Bool(bool_val)){
-                    Ok(()) => (),
-                    Err(e_1) => return Err(e_1)
-                }
+            Ok(bool_val) => match stack.push(rpn::Item::Bool(bool_val)) {
+                Ok(()) => (),
+                Err(e_1) => return Err(e_1),
             },
             Err(_) => {
                 let int_res = tok.parse::<i32>();
                 match int_res {
-                    Ok(int_val) => {
-                        match stack.push(rpn::Item::Int(int_val)){
-                            Ok(()) => (),
-                            Err(e_2) => return Err(e_2)
-                        }
+                    Ok(int_val) => match stack.push(rpn::Item::Int(int_val)) {
+                        Ok(()) => (),
+                        Err(e_2) => return Err(e_2),
                     },
                     Err(_) => {
-                        let res = 
-                            if tok == "+"{
-                                stack.eval(rpn::Op::Add)
-                            }
-                            else if tok == "="{
-                                stack.eval(rpn::Op::Eq)
-                            }
-                            else if tok == "~"{
-                                stack.eval(rpn::Op::Neg)
-                            }
-                            else if tok == "<->"{
-                                stack.eval(rpn::Op::Swap)
-                            }
-                            else if tok == "#"{
-                                stack.eval(rpn::Op::Rand)
-                            }
-                            else if tok == "?"{
-                                stack.eval(rpn::Op::Cond)
-                            }
-                            else if tok == "quit"{
-                                stack.eval(rpn::Op::Quit)
-                            }
-                            else {
-                                Err(rpn::Error::Syntax)
-                            };
+                        let res = if tok == "+" {
+                            stack.eval(rpn::Op::Add)
+                        } else if tok == "=" {
+                            stack.eval(rpn::Op::Eq)
+                        } else if tok == "~" {
+                            stack.eval(rpn::Op::Neg)
+                        } else if tok == "<->" {
+                            stack.eval(rpn::Op::Swap)
+                        } else if tok == "#" {
+                            stack.eval(rpn::Op::Rand)
+                        } else if tok == "?" {
+                            stack.eval(rpn::Op::Cond)
+                        } else if tok == "quit" {
+                            stack.eval(rpn::Op::Quit)
+                        } else {
+                            Err(rpn::Error::Syntax)
+                        };
 
                         match res {
                             Ok(()) => (),
-                            Err(e_3) => return Err(e_3)
+                            Err(e_3) => return Err(e_3),
                         }
-
                     }
                 }
             }
         }
-
     }
 
     Ok(())
-
 }

@@ -45,13 +45,15 @@ mod tests {
 
     #[test]
     fn test_hanoi() {
-        let moves = vec![ (Peg::A, Peg::C)
-                        , (Peg::A, Peg::B)
-                        , (Peg::C, Peg::B)
-                        , (Peg::A, Peg::C)
-                        , (Peg::B, Peg::A)
-                        , (Peg::B, Peg::C)
-                        , (Peg::A, Peg::C) ];
+        let moves = vec![
+            (Peg::A, Peg::C),
+            (Peg::A, Peg::B),
+            (Peg::C, Peg::B),
+            (Peg::A, Peg::C),
+            (Peg::B, Peg::A),
+            (Peg::B, Peg::C),
+            (Peg::A, Peg::C),
+        ];
 
         assert_eq!(hanoi(3, Peg::A, Peg::B, Peg::C), moves);
     }
