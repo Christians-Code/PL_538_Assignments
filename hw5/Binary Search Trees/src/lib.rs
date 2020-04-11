@@ -44,41 +44,81 @@ where
 {
     /// Make a new `TreeMap`.
     pub fn new() -> Self {
-        todo!()
+        TreeMap { inner: None }
     }
 
     /// Clear a `TreeMap`.
     pub fn clear(&mut self) {
-        todo!()
+        self.inner = None
     }
 
     /// Check if a `TreeMap` is empty.
     pub fn is_empty(&self) -> bool {
-        todo!()
+        if TreeMap::len(&self) == 0 {
+            true
+        } else {
+            false
+        }
     }
 
     /// Compute the size of a `TreeMap`.
     pub fn len(&self) -> usize {
-        todo!()
+        match &self.inner {
+            Some(b) => (*b).size,
+            None => 0,
+        }
     }
 
     /// Check if a `TreeMap` has a certain key.
     pub fn has_key(&self, key: &K) -> bool {
-        todo!()
+        match &self.inner {
+            Some(b) => {
+                if (*b).key == *key {
+                    true
+                } else if (*b).key > *key {
+                    (*b).lt.has_key(key)
+                } else {
+                    (*b).rt.has_key(key)
+                }
+            }
+            None => false,
+        }
     }
 
     /// Get a reference to the value associated with a key, if present.
     ///
     /// If the key is not in the map, return `None`.
     pub fn get(&self, key: &K) -> Option<&V> {
-        todo!()
+        match &self.inner {
+            Some(b) => {
+                if (*b).key == *key {
+                    Some(&(*b).val)
+                } else if (*b).key > *key {
+                    (*b).lt.get(key)
+                } else {
+                    (*b).rt.get(key)
+                }
+            }
+            None => None,
+        }
     }
 
     /// Get a mutable reference to the value associated with a key, if present.
     ///
     /// If the key is not in the map, return `None`.
     pub fn get_mut(&mut self, key: &K) -> Option<&mut V> {
-        todo!()
+        match &mut self.inner {
+            Some(b) => {
+                if (*b).key == *key {
+                    Some(&mut (*b).val)
+                } else if (*b).key > *key {
+                    (*b).lt.get_mut(key)
+                } else {
+                    (*b).rt.get_mut(key)
+                }
+            }
+            None => None,
+        }
     }
 
     /// Insert a (key, value) pair into a TreeMap.
@@ -86,7 +126,34 @@ where
     /// If the key is already present in the map, return the previous value and replace the old
     /// value with the new value. Otherwise, insert the new (key, value) pair and return `None`.
     pub fn insert(&mut self, key: K, val: V) -> Option<V> {
-        todo!()
+        match &mut self.inner {
+            Some(b) => {
+                if (*b).key == key{
+                    let old_value = std::mem::replace(&mut b.val, val);
+                    return Some(old_value)
+                }
+                else if (*b).key > key {
+                    (*b).size = (*b).size + 1;
+                    (*b).lt.insert(key, val)
+                }
+                else{
+                    (*b).size = (*b).size + 1;
+                    (*b).rt.insert(key, val)
+                }
+            },
+            None => {
+                let new_node: Node<K, V> = Node {
+                    key: key,
+                    val: val,
+                    size: 1,
+                    lt: TreeMap::new(),
+                    rt: TreeMap::new(),
+                };
+                *(&mut self.inner) = Some(Box::new(new_node));
+
+                return None;
+            }
+        }
     }
 
     /// Insert a nonempty `TreeMap` into a `TreeMap`.
@@ -102,7 +169,19 @@ where
     /// silently) if this requirement is not met. However if the trees are not overlapping, you
     /// must maintain the BST invariant.
     fn insert_tree(&mut self, other: &mut Self) {
-        todo!()
+        match &mut other.inner {
+            Some(b) =>{
+                match &mut self.inner {
+                    Some(b1) =>{
+                        todo!()
+                    }
+                    None => {
+                        todo!()
+                    }
+                }
+            },
+            None => todo!()
+        }
     }
 
     /// Remove a key from a `TreeMap`.
@@ -308,7 +387,6 @@ pub struct IterMut<'a, K, V> {
     TODO
 }
 */
-
 
 #[cfg(test)]
 mod test {
