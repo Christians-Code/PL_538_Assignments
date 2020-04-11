@@ -173,14 +173,24 @@ where
             Some(b) =>{
                 match &mut self.inner {
                     Some(b1) =>{
-                        todo!()
+                        if (*b1).key == (*b).key {
+                            panic!("non-overlapping condition not met!");
+                        }
+                        else if (*b1).key > (*b).key {
+                            (*b1).lt.insert_tree(other);
+                            ()
+                        }
+                        else{
+                            (*b1).rt.insert_tree(other);
+                            ()
+                        }
                     }
                     None => {
-                        todo!()
+                        *(&mut self.inner) = Option::take(&mut other.inner);
                     }
                 }
             },
-            None => todo!()
+            None => ()
         }
     }
 
