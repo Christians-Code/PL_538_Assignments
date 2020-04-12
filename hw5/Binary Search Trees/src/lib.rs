@@ -205,26 +205,16 @@ where
                         inner: Option::take(&mut b.lt.inner),
                     };
                     return Some(associated_value);
-                } else if b.key > key {
-                    let y = b.lt.remove(key);
-                    match &mut self.inner {
-                        Some(_) => {
-                            println!("Should never reach here");
-                        }
-                        None => {
-                            let new_node: Node<K, V> = Node {
-                                key: b.key,
-                                val: b.val,
-                                lt: b.lt,
-                                rt: b.rt,
-                                size: b.size,
-                            };
-                            self.inner = Some(Box::new(new_node));
-                        }
-                    };
-                    return y;
                 } else {
-                    let y = b.rt.remove(key);
+                    let owned_value:Option<V>;
+                    
+                    if b.key > key{
+                        owned_value = b.lt.remove(key);
+                    }
+                    else{
+                        owned_value = b.rt.remove(key);
+                    }
+
                     match &mut self.inner {
                         Some(_) => {
                             println!("Should never reach here");
@@ -240,7 +230,7 @@ where
                             self.inner = Some(Box::new(new_node));
                         }
                     };
-                    return y;
+                    return owned_value;
                 }
             }
             None => None,
