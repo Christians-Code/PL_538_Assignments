@@ -195,17 +195,52 @@ where
     ///
     /// Hint: take the two child trees of the node you're removing, insert one into the other.
     pub fn remove(&mut self, key: K) -> Option<V> {
-        let mut owned_data = Option::take(&mut self.inner);
-        match &mut owned_data {
-            Some(b) => {
+        let owned_data = Option::take(&mut self.inner);
+        match owned_data {
+            Some(mut b) => {
                 if b.key == key {
-                    b.lt.insert_tree(&mut (*b).rt);
-                    self.inner = Option::take(&mut b.lt.inner);
-                    return Some(owned_data.unwrap().val);
+                    let associated_value = b.val;
+                    b.lt.insert_tree(&mut b.rt);
+                    *self = TreeMap {
+                        inner: Option::take(&mut b.lt.inner),
+                    };
+                    return Some(associated_value);
                 } else if b.key > key {
-                    b.lt.remove(key)
+                    let y = b.lt.remove(key);
+                    match &mut self.inner {
+                        Some(_) => {
+                            println!("Should never reach here");
+                        }
+                        None => {
+                            let new_node: Node<K, V> = Node {
+                                key: b.key,
+                                val: b.val,
+                                lt: b.lt,
+                                rt: b.rt,
+                                size: b.size,
+                            };
+                            self.inner = Some(Box::new(new_node));
+                        }
+                    };
+                    return y;
                 } else {
-                    b.rt.remove(key)
+                    let y = b.rt.remove(key);
+                    match &mut self.inner {
+                        Some(_) => {
+                            println!("Should never reach here");
+                        }
+                        None => {
+                            let new_node: Node<K, V> = Node {
+                                key: b.key,
+                                val: b.val,
+                                lt: b.lt,
+                                rt: b.rt,
+                                size: b.size,
+                            };
+                            self.inner = Some(Box::new(new_node));
+                        }
+                    };
+                    return y;
                 }
             }
             None => None,
@@ -290,9 +325,9 @@ where
     type Output = V;
 
     fn index(&self, key: &K) -> &V {
-        match self.get(key){
+        match self.get(key) {
             Some(value) => value,
-            None => panic!("Key is not in the map")
+            None => panic!("Key is not in the map"),
         }
     }
 }
@@ -303,9 +338,9 @@ where
     V: Debug,
 {
     fn index_mut(&mut self, key: &'a K) -> &mut V {
-        match self.get_mut(key){
+        match self.get_mut(key) {
             Some(value) => value,
-            None => panic!("Key is not in the map")
+            None => panic!("Key is not in the map"),
         }
     }
 }
@@ -341,7 +376,24 @@ impl<K, V> IntoIter<K, V> {
     ///
     /// Note that this function takes ownership, because we are building a *consuming* iterator.
     fn new(tree: TreeMap<K, V>) -> Self {
-        todo!()
+        println!("Called new");
+        let mut vec: Vec<Next<(K, V), TreeMap<K, V>>> = Vec::new();
+
+        match tree.inner {
+            Some(b) => {
+                vec.push(Next::Tree(b.rt));
+                return IntoIter {
+                    next_nodes: vec,
+                    current_val: Some((b.key, b.val)),
+                };
+            }
+            None => {
+                return IntoIter {
+                    next_nodes: vec,
+                    current_val: None,
+                }
+            }
+        }
     }
 
     /// This is the main workhorse function for setting up the iterator. In words, this function
@@ -350,7 +402,18 @@ impl<K, V> IntoIter<K, V> {
     /// nodes in the correct order---we want an in-order traversal, so the iterator should visit
     /// left-child, parent, right-child as we pop things off the stack.
     fn descend_left(&mut self, tree: TreeMap<K, V>) {
-        todo!()
+        println!("Called descend_left");
+        match tree.inner {
+            Some(b) => {
+                self.next_nodes.push(Next::Tree(b.rt));
+                self.next_nodes.push(Next::Item((b.key, b.val)));
+                self.descend_left(b.lt);
+            }
+            None => match self.next_nodes.pop() {
+                Some(Next::Item(pair)) => self.current_val = Some(pair),
+                _ => (),
+            },
+        }
     }
 }
 
@@ -360,7 +423,8 @@ impl<K, V> IntoIterator for TreeMap<K, V> {
     type IntoIter = IntoIter<K, V>;
 
     fn into_iter(self) -> IntoIter<K, V> {
-        todo!()
+        println!("Called into_iter");
+        IntoIter::new(self)
     }
 }
 
@@ -373,7 +437,10 @@ impl<K, V> IntoIterator for TreeMap<K, V> {
 impl<K, V> Iterator for IntoIter<K, V> {
     type Item = (K, V);
     fn next(&mut self) -> Option<Self::Item> {
-        todo!()
+        println!("Called next");
+        let curr_pair = Option::take(&mut self.current_val);
+        //IntoIter::descend_left();
+        return curr_pair;
     }
 }
 
