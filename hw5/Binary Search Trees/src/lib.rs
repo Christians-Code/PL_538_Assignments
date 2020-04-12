@@ -128,19 +128,17 @@ where
     pub fn insert(&mut self, key: K, val: V) -> Option<V> {
         match &mut self.inner {
             Some(b) => {
-                if (*b).key == key{
+                if (*b).key == key {
                     let old_value = std::mem::replace(&mut b.val, val);
-                    return Some(old_value)
-                }
-                else if (*b).key > key {
+                    return Some(old_value);
+                } else if (*b).key > key {
                     (*b).size = (*b).size + 1;
                     (*b).lt.insert(key, val)
-                }
-                else{
+                } else {
                     (*b).size = (*b).size + 1;
                     (*b).rt.insert(key, val)
                 }
-            },
+            }
             None => {
                 let new_node: Node<K, V> = Node {
                     key: key,
@@ -170,27 +168,23 @@ where
     /// must maintain the BST invariant.
     fn insert_tree(&mut self, other: &mut Self) {
         match &mut other.inner {
-            Some(b) =>{
-                match &mut self.inner {
-                    Some(b1) =>{
-                        if (*b1).key == (*b).key {
-                            panic!("non-overlapping condition not met!");
-                        }
-                        else if (*b1).key > (*b).key {
-                            (*b1).lt.insert_tree(other);
-                            ()
-                        }
-                        else{
-                            (*b1).rt.insert_tree(other);
-                            ()
-                        }
-                    }
-                    None => {
-                        *(&mut self.inner) = Option::take(&mut other.inner);
+            Some(b) => match &mut self.inner {
+                Some(b1) => {
+                    if (*b1).key == (*b).key {
+                        panic!("non-overlapping condition not met!");
+                    } else if (*b1).key > (*b).key {
+                        (*b1).lt.insert_tree(other);
+                        ()
+                    } else {
+                        (*b1).rt.insert_tree(other);
+                        ()
                     }
                 }
+                None => {
+                    *(&mut self.inner) = Option::take(&mut other.inner);
+                }
             },
-            None => ()
+            None => (),
         }
     }
 
@@ -201,7 +195,21 @@ where
     ///
     /// Hint: take the two child trees of the node you're removing, insert one into the other.
     pub fn remove(&mut self, key: K) -> Option<V> {
-        todo!()
+        let mut owned_data = Option::take(&mut self.inner);
+        match &mut owned_data {
+            Some(b) => {
+                if b.key == key {
+                    b.lt.insert_tree(&mut (*b).rt);
+                    self.inner = Option::take(&mut b.lt.inner);
+                    return Some(owned_data.unwrap().val);
+                } else if b.key > key {
+                    b.lt.remove(key)
+                } else {
+                    b.rt.remove(key)
+                }
+            }
+            None => None,
+        }
     }
 }
 
@@ -217,7 +225,13 @@ where
     where
         T: IntoIterator<Item = (K, V)>,
     {
-        todo!()
+        let mut new_map = TreeMap::new();
+
+        for (key, val) in iter {
+            new_map.insert(key, val);
+        }
+
+        new_map
     }
 }
 
@@ -276,7 +290,10 @@ where
     type Output = V;
 
     fn index(&self, key: &K) -> &V {
-        todo!()
+        match self.get(key){
+            Some(value) => value,
+            None => panic!("Key is not in the map")
+        }
     }
 }
 
@@ -286,7 +303,10 @@ where
     V: Debug,
 {
     fn index_mut(&mut self, key: &'a K) -> &mut V {
-        todo!()
+        match self.get_mut(key){
+            Some(value) => value,
+            None => panic!("Key is not in the map")
+        }
     }
 }
 
