@@ -366,13 +366,13 @@ impl<K, V> IntoIter<K, V> {
     ///
     /// Note that this function takes ownership, because we are building a *consuming* iterator.
     fn new(tree: TreeMap<K, V>) -> Self {
-        println!("Called new");
-        let mut vec: Vec<Next<(K, V), TreeMap<K, V>>> = Vec::new();
-        vec.push(Next::Tree(tree));
-        return IntoIter {
+        let vec: Vec<Next<(K, V), TreeMap<K, V>>> = Vec::new();
+        let mut iter_struct = IntoIter {
             next_nodes: vec,
             current_val: None,
-        }
+        };
+        iter_struct.descend_left(tree);
+        return iter_struct;
     }
 
     /// This is the main workhorse function for setting up the iterator. In words, this function
@@ -381,7 +381,6 @@ impl<K, V> IntoIter<K, V> {
     /// nodes in the correct order---we want an in-order traversal, so the iterator should visit
     /// left-child, parent, right-child as we pop things off the stack.
     fn descend_left(&mut self, tree: TreeMap<K, V>) {
-        println!("Called descend_left");
         match tree.inner {
             Some(b) => {
                 if b.rt.inner.is_none() {
@@ -396,7 +395,7 @@ impl<K, V> IntoIter<K, V> {
             }
             None => match self.next_nodes.pop() {
                 Some(Next::Item(pair)) => self.current_val = Some(pair),
-                _ => (),
+                _ => self.current_val = None,
             },
         }
     }
@@ -408,7 +407,6 @@ impl<K, V> IntoIterator for TreeMap<K, V> {
     type IntoIter = IntoIter<K, V>;
 
     fn into_iter(self) -> IntoIter<K, V> {
-        println!("Called into_iter");
         IntoIter::new(self)
     }
 }
@@ -422,17 +420,20 @@ impl<K, V> IntoIterator for TreeMap<K, V> {
 impl<K, V> Iterator for IntoIter<K, V> {
     type Item = (K, V);
     fn next(&mut self) -> Option<Self::Item> {
-        println!("Called next");
+
+        let curr_val = Option::take(&mut self.current_val);
+
         match self.next_nodes.pop(){
             Some(Next::Item(pair))=>{
-                return Some(pair);
+                self.current_val = Some(pair);
             }
             Some(Next::Tree(tree)) =>{
                 self.descend_left(tree);
-                Option::take(&mut self.current_val)
             }
-            None => None
+            None => self.current_val = None
         }
+
+        return curr_val;
     }
 }
 
