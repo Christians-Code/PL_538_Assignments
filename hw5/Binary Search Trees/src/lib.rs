@@ -207,7 +207,7 @@ where
                     return Some(associated_value);
                 } else {
                     let owned_value:Option<V>;
-                    
+
                     if b.key > key{
                         owned_value = b.lt.remove(key);
                     }
@@ -368,21 +368,10 @@ impl<K, V> IntoIter<K, V> {
     fn new(tree: TreeMap<K, V>) -> Self {
         println!("Called new");
         let mut vec: Vec<Next<(K, V), TreeMap<K, V>>> = Vec::new();
-
-        match tree.inner {
-            Some(b) => {
-                vec.push(Next::Tree(b.rt));
-                return IntoIter {
-                    next_nodes: vec,
-                    current_val: Some((b.key, b.val)),
-                };
-            }
-            None => {
-                return IntoIter {
-                    next_nodes: vec,
-                    current_val: None,
-                }
-            }
+        vec.push(Next::Tree(tree));
+        return IntoIter {
+            next_nodes: vec,
+            current_val: None,
         }
     }
 
@@ -395,9 +384,15 @@ impl<K, V> IntoIter<K, V> {
         println!("Called descend_left");
         match tree.inner {
             Some(b) => {
-                self.next_nodes.push(Next::Tree(b.rt));
-                self.next_nodes.push(Next::Item((b.key, b.val)));
-                self.descend_left(b.lt);
+                if b.rt.inner.is_none() {
+                    self.next_nodes.push(Next::Item((b.key, b.val)));
+                    self.descend_left(b.lt);
+                }
+                else{
+                    self.next_nodes.push(Next::Tree(b.rt));
+                    self.next_nodes.push(Next::Item((b.key, b.val)));
+                    self.descend_left(b.lt);
+                }
             }
             None => match self.next_nodes.pop() {
                 Some(Next::Item(pair)) => self.current_val = Some(pair),
@@ -428,9 +423,16 @@ impl<K, V> Iterator for IntoIter<K, V> {
     type Item = (K, V);
     fn next(&mut self) -> Option<Self::Item> {
         println!("Called next");
-        let curr_pair = Option::take(&mut self.current_val);
-        //IntoIter::descend_left();
-        return curr_pair;
+        match self.next_nodes.pop(){
+            Some(Next::Item(pair))=>{
+                return Some(pair);
+            }
+            Some(Next::Tree(tree)) =>{
+                self.descend_left(tree);
+                Option::take(&mut self.current_val)
+            }
+            None => None
+        }
     }
 }
 
