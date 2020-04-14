@@ -218,26 +218,11 @@ where
                         owned_value = b.rt.remove(key);
                     }
 
-                    match &mut self.inner {
-                        Some(_) => {
-                            println!("Should never reach here");
-                        }
-                        None => {
-                            if owned_value.is_none() {
-                                b.size = b.size + 1;
-                            }
-
-                            let new_node: Node<K, V> = Node {
-                                key: b.key,
-                                val: b.val,
-                                lt: b.lt,
-                                rt: b.rt,
-                                size: b.size,
-                            };
-
-                            self.inner = Some(Box::new(new_node));
-                        }
-                    };
+                    if owned_value.is_none() {
+                        b.size = b.size + 1;
+                    }
+                    
+                    self.inner = Some(b);
                     return owned_value;
                 }
             }
