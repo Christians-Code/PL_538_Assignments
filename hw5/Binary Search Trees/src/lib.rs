@@ -475,7 +475,7 @@ pub struct Iter<'a, K, V> {
     current_val: Option<(&'a K, &'a V)>,
 }
 pub struct IterMut<'a, K, V> {
-    next_nodes: Vec<Next<(&'a K, &'a mut V), &'a TreeMap<K, V>>>,
+    next_nodes: Vec<Next<(&'a K, &'a mut V), &'a mut TreeMap<K, V>>>,
     current_val: Option<(&'a K, &'a mut V)>,
 }
 
@@ -483,9 +483,9 @@ impl<K, V> TreeMap<K, V> {
     pub fn iter(&self) -> Iter<K, V> {
         Iter::new(self)
     }
-    /*pub fn iter_mut(&mut self) -> IterMut<K, V> {
+    pub fn iter_mut(&mut self) -> IterMut<K, V> {
         IterMut::new(self)
-    }*/
+    }
 }
 
 impl<'a, K, V> Iter<'a, K, V> {
@@ -549,13 +549,13 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
 }
 
 
-/*
+
 impl<'a, K, V> IterMut<'a, K, V> {
     /// Make a new consuming iterator from a `TreeMap`
     ///
     /// Note that this function takes ownership, because we are building a *consuming* iterator.
-    fn new(tree: &'a TreeMap<K, V>) -> Self {
-        let vec: Vec<Next<(&'a K, &'a mut V), &'a TreeMap<K, V>>> = Vec::new();
+    fn new(tree: &'a mut TreeMap<K, V>) -> Self {
+        let vec: Vec<Next<(&'a K, &'a mut V), &'a mut TreeMap<K, V>>> = Vec::new();
         let mut iter_struct = IterMut {
             next_nodes: vec,
             current_val: None,
@@ -569,17 +569,17 @@ impl<'a, K, V> IterMut<'a, K, V> {
     /// iterator state: the current value, and the next-nodes-to-visit stack. Make sure you add
     /// nodes in the correct order---we want an in-order traversal, so the iterator should visit
     /// left-child, parent, right-child as we pop things off the stack.
-    fn descend_left(&mut self, tree: &'a TreeMap<K, V>) {
-        match &tree.inner {
-            Some(mut b) => {
+    fn descend_left(&mut self, tree: &'a mut TreeMap<K, V>) {
+        match &mut tree.inner {
+            Some(b)=> {
                 if b.rt.inner.is_none() {
                     self.next_nodes.push(Next::Item((&b.key, & mut b.val)));
-                    self.descend_left(&b.lt);
+                    self.descend_left(&mut b.lt);
                 }
                 else{
-                    self.next_nodes.push(Next::Tree(&b.rt));
+                    self.next_nodes.push(Next::Tree(&mut b.rt));
                     self.next_nodes.push(Next::Item((&b.key, & mut b.val)));
-                    self.descend_left(&b.lt);
+                    self.descend_left(&mut b.lt);
                 }
             }
             None => match self.next_nodes.pop() {
@@ -610,7 +610,7 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
     }
 }
 
-*/
+
 #[cfg(test)]
 mod test {
     use super::TreeMap;
@@ -790,7 +790,6 @@ mod test {
         assert_eq!(iter.next(), None);
     }
 
-    /* Uncomment when mutable iterator ready.
     #[test]
     fn test_mut_iter() {
         let vec = vec![(1, 11), (3, 33), (2, 22)];
@@ -806,7 +805,7 @@ mod test {
         assert_eq!(tree.get(&1), Some(&101));
         assert_eq!(tree.get(&2), Some(&102));
         assert_eq!(tree.get(&3), Some(&103));
-    } */
+    } 
 
     use std::cell::RefCell;
 
