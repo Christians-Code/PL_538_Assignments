@@ -173,9 +173,11 @@ where
                     if (*b1).key == (*b).key {
                         panic!("non-overlapping condition not met!");
                     } else if (*b1).key > (*b).key {
+                        (*b1).size = (*b1).size + (*b).size;
                         (*b1).lt.insert_tree(other);
                         ()
                     } else {
+                        (*b1).size = (*b1).size + (*b).size;
                         (*b1).rt.insert_tree(other);
                         ()
                     }
@@ -209,8 +211,10 @@ where
                     let owned_value: Option<V>;
 
                     if b.key > key {
+                        b.size = b.size - 1;
                         owned_value = b.lt.remove(key);
                     } else {
+                        b.size = b.size - 1;
                         owned_value = b.rt.remove(key);
                     }
 
@@ -219,6 +223,10 @@ where
                             println!("Should never reach here");
                         }
                         None => {
+                            if owned_value.is_none() {
+                                b.size = b.size + 1;
+                            }
+
                             let new_node: Node<K, V> = Node {
                                 key: b.key,
                                 val: b.val,
@@ -226,6 +234,7 @@ where
                                 rt: b.rt,
                                 size: b.size,
                             };
+
                             self.inner = Some(Box::new(new_node));
                         }
                     };
