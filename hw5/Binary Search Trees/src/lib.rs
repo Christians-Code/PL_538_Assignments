@@ -469,15 +469,148 @@ impl<K, V> Iterator for IntoIter<K, V> {
 /// annotations and tweaks in a few key places, but your code for the borrowing and mutable
 /// iterators should be a nearly exact copy of your code for consuming iterators.
 
-/*
+
 pub struct Iter<'a, K, V> {
-    TODO
+    next_nodes: Vec<Next<(&'a K, &'a V), &'a TreeMap<K, V>>>,
+    current_val: Option<(&'a K, &'a V)>,
 }
 pub struct IterMut<'a, K, V> {
-    TODO
+    next_nodes: Vec<Next<(&'a K, &'a mut V), &'a TreeMap<K, V>>>,
+    current_val: Option<(&'a K, &'a mut V)>,
 }
-*/
 
+impl<K, V> TreeMap<K, V> {
+    pub fn iter(&self) -> Iter<K, V> {
+        Iter::new(self)
+    }
+    /*pub fn iter_mut(&mut self) -> IterMut<K, V> {
+        IterMut::new(self)
+    }*/
+}
+
+impl<'a, K, V> Iter<'a, K, V> {
+    /// Make a new consuming iterator from a `TreeMap`
+    ///
+    /// Note that this function takes ownership, because we are building a *consuming* iterator.
+    fn new(tree: &'a TreeMap<K, V>) -> Self {
+        let vec: Vec<Next<(&'a K, &'a V), &'a TreeMap<K, V>>> = Vec::new();
+        let mut iter_struct = Iter {
+            next_nodes: vec,
+            current_val: None,
+        };
+        iter_struct.descend_left(tree);
+        return iter_struct;
+    }
+
+    /// This is the main workhorse function for setting up the iterator. In words, this function
+    /// should descends to the left-furthermost non-leaf child. Along the way, it sets up the
+    /// iterator state: the current value, and the next-nodes-to-visit stack. Make sure you add
+    /// nodes in the correct order---we want an in-order traversal, so the iterator should visit
+    /// left-child, parent, right-child as we pop things off the stack.
+    fn descend_left(&mut self, tree: &'a TreeMap<K, V>) {
+        match &tree.inner {
+            Some(b) => {
+                if b.rt.inner.is_none() {
+                    self.next_nodes.push(Next::Item((&b.key, &b.val)));
+                    self.descend_left(&b.lt);
+                }
+                else{
+                    self.next_nodes.push(Next::Tree(&b.rt));
+                    self.next_nodes.push(Next::Item((&b.key, &b.val)));
+                    self.descend_left(&b.lt);
+                }
+            }
+            None => match self.next_nodes.pop() {
+                Some(Next::Item(pair)) => self.current_val = Some(pair),
+                _ => self.current_val = None,
+            },
+        }
+    }
+}
+
+impl<'a, K, V> Iterator for Iter<'a, K, V> {
+    type Item = (&'a K, &'a V);
+    fn next(&mut self) -> Option<Self::Item> {
+
+        let curr_val = Option::take(&mut self.current_val);
+
+        match self.next_nodes.pop(){
+            Some(Next::Item(pair))=>{
+                self.current_val = Some(pair);
+            }
+            Some(Next::Tree(tree)) =>{
+                self.descend_left(tree);
+            }
+            None => self.current_val = None
+        }
+
+        return curr_val;
+    }
+}
+
+
+/*
+impl<'a, K, V> IterMut<'a, K, V> {
+    /// Make a new consuming iterator from a `TreeMap`
+    ///
+    /// Note that this function takes ownership, because we are building a *consuming* iterator.
+    fn new(tree: &'a TreeMap<K, V>) -> Self {
+        let vec: Vec<Next<(&'a K, &'a mut V), &'a TreeMap<K, V>>> = Vec::new();
+        let mut iter_struct = IterMut {
+            next_nodes: vec,
+            current_val: None,
+        };
+        iter_struct.descend_left(tree);
+        return iter_struct;
+    }
+
+    /// This is the main workhorse function for setting up the iterator. In words, this function
+    /// should descends to the left-furthermost non-leaf child. Along the way, it sets up the
+    /// iterator state: the current value, and the next-nodes-to-visit stack. Make sure you add
+    /// nodes in the correct order---we want an in-order traversal, so the iterator should visit
+    /// left-child, parent, right-child as we pop things off the stack.
+    fn descend_left(&mut self, tree: &'a TreeMap<K, V>) {
+        match &tree.inner {
+            Some(mut b) => {
+                if b.rt.inner.is_none() {
+                    self.next_nodes.push(Next::Item((&b.key, & mut b.val)));
+                    self.descend_left(&b.lt);
+                }
+                else{
+                    self.next_nodes.push(Next::Tree(&b.rt));
+                    self.next_nodes.push(Next::Item((&b.key, & mut b.val)));
+                    self.descend_left(&b.lt);
+                }
+            }
+            None => match self.next_nodes.pop() {
+                Some(Next::Item(pair)) => self.current_val = Some(pair),
+                _ => self.current_val = None,
+            },
+        }
+    }
+}
+
+impl<'a, K, V> Iterator for IterMut<'a, K, V> {
+    type Item = (&'a K, &'a mut V);
+    fn next(&mut self) -> Option<Self::Item> {
+
+        let curr_val = Option::take(&mut self.current_val);
+
+        match self.next_nodes.pop(){
+            Some(Next::Item(pair))=>{
+                self.current_val = Some(pair);
+            }
+            Some(Next::Tree(tree)) =>{
+                self.descend_left(tree);
+            }
+            None => self.current_val = None
+        }
+
+        return curr_val;
+    }
+}
+
+*/
 #[cfg(test)]
 mod test {
     use super::TreeMap;
@@ -644,7 +777,6 @@ mod test {
         assert_eq!(iter.next(), None);
     }
 
-    /* Uncomment when borrowing iterator ready.
     #[test]
     fn test_borrow_iter() {
         let vec = vec![(1, 11), (3, 33), (2, 22)];
@@ -656,7 +788,7 @@ mod test {
         assert_eq!(iter.next(), Some((&2, &22)));
         assert_eq!(iter.next(), Some((&3, &33)));
         assert_eq!(iter.next(), None);
-    } */
+    }
 
     /* Uncomment when mutable iterator ready.
     #[test]
