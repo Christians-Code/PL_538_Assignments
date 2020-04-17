@@ -54,11 +54,7 @@ where
 
     /// Check if a `TreeMap` is empty.
     pub fn is_empty(&self) -> bool {
-        if TreeMap::len(&self) == 0 {
-            true
-        } else {
-            false
-        }
+        TreeMap::len(&self) == 0
     }
 
     /// Compute the size of a `TreeMap`.
@@ -130,26 +126,26 @@ where
             Some(b) => {
                 if (*b).key == key {
                     let old_value = std::mem::replace(&mut b.val, val);
-                    return Some(old_value);
+                    Some(old_value)
                 } else if (*b).key > key {
-                    (*b).size = (*b).size + 1;
+                    (*b).size += 1;
                     (*b).lt.insert(key, val)
                 } else {
-                    (*b).size = (*b).size + 1;
+                    (*b).size += 1;
                     (*b).rt.insert(key, val)
                 }
             }
             None => {
                 let new_node: Node<K, V> = Node {
-                    key: key,
-                    val: val,
+                    key,
+                    val,
                     size: 1,
                     lt: TreeMap::new(),
                     rt: TreeMap::new(),
                 };
-                *(&mut self.inner) = Some(Box::new(new_node));
+                self.inner = Some(Box::new(new_node));
 
-                return None;
+                None
             }
         }
     }
@@ -173,17 +169,15 @@ where
                     if (*b1).key == (*b).key {
                         panic!("non-overlapping condition not met!");
                     } else if (*b1).key > (*b).key {
-                        (*b1).size = (*b1).size + (*b).size;
+                        (*b1).size += (*b).size;
                         (*b1).lt.insert_tree(other);
-                        ()
                     } else {
-                        (*b1).size = (*b1).size + (*b).size;
+                        (*b1).size += (*b).size;
                         (*b1).rt.insert_tree(other);
-                        ()
                     }
                 }
                 None => {
-                    *(&mut self.inner) = Option::take(&mut other.inner);
+                    self.inner = Option::take(&mut other.inner);
                 }
             },
             None => (),
@@ -206,24 +200,24 @@ where
                     *self = TreeMap {
                         inner: Option::take(&mut b.lt.inner),
                     };
-                    return Some(associated_value);
+                    Some(associated_value)
                 } else {
                     let owned_value: Option<V>;
 
                     if b.key > key {
-                        b.size = b.size - 1;
+                        b.size -= 1;
                         owned_value = b.lt.remove(key);
                     } else {
-                        b.size = b.size - 1;
+                        b.size -= 1;
                         owned_value = b.rt.remove(key);
                     }
 
                     if owned_value.is_none() {
-                        b.size = b.size + 1;
+                        b.size += 1;
                     }
-                    
+
                     self.inner = Some(b);
-                    return owned_value;
+                    owned_value
                 }
             }
             None => None,
@@ -365,7 +359,7 @@ impl<K, V> IntoIter<K, V> {
             current_val: None,
         };
         iter_struct.descend_left(tree);
-        return iter_struct;
+        iter_struct
     }
 
     /// This is the main workhorse function for setting up the iterator. In words, this function
@@ -424,7 +418,7 @@ impl<K, V> Iterator for IntoIter<K, V> {
             None => self.current_val = None,
         }
 
-        return curr_val;
+        curr_val
     }
 }
 
@@ -478,7 +472,7 @@ impl<'a, K, V> Iter<'a, K, V> {
             current_val: None,
         };
         iter_struct.descend_left(tree);
-        return iter_struct;
+        iter_struct
     }
 
     fn descend_left(&mut self, tree: &'a TreeMap<K, V>) {
@@ -509,7 +503,7 @@ impl<'a, K, V> IterMut<'a, K, V> {
             current_val: None,
         };
         iter_struct.descend_left(tree);
-        return iter_struct;
+        iter_struct
     }
 
     fn descend_left(&mut self, tree: &'a mut TreeMap<K, V>) {
@@ -556,7 +550,7 @@ impl<'a, K, V> Iterator for Iter<'a, K, V> {
             None => self.current_val = None,
         }
 
-        return curr_val;
+        curr_val
     }
 }
 
@@ -575,7 +569,7 @@ impl<'a, K, V> Iterator for IterMut<'a, K, V> {
             None => self.current_val = None,
         }
 
-        return curr_val;
+        curr_val
     }
 }
 
