@@ -55,42 +55,54 @@ pub fn process_feed_file(file_name: &str, index: Arc<Mutex<ArticleIndex>>) -> Rs
 
     let urls = Arc::new(Mutex::new(HashSet::new()));
 
+    let mut handles = Vec::<_>::new();
+
     for feed in channel.into_items() {
         let mut f_c = counters.feeds_count.mutex.lock().unwrap();
+        let mut t_c = counters.total_count.mutex.lock().unwrap();
+
         while *f_c > MAX_THREADS_FEEDS {
             f_c = counters.feeds_count.condvar.wait(f_c).unwrap();
         }
 
         *f_c = *f_c + 1;
+        *t_c = *t_c + 1;
+        {
+            let counters = Arc::clone(&counters);
+            let urls = Arc::clone(&urls);
+            let index = Arc::clone(&index);
 
-        let counters = Arc::clone(&counters);
-        let urls = Arc::clone(&urls);
-        let index = Arc::clone(&index);
+            let handle = thread::spawn(move || {
+                let url_option = feed.link();
+                match url_option {
+                    Some(url) => {
+                        let title_option = feed.title();
+                        match title_option {
+                            Some(title) => {
+                                if urls.lock().unwrap().contains(url) {
+                                    println!("Skipping already seen feed: {} [{}]", title, url);
+                                }
+                                urls.lock().unwrap().insert(url.to_string());
 
-        thread::spawn(move || {
-            let url_option = feed.link();
-            match url_option {
-                Some(url) => {
-                    let title_option = feed.title();
-                    match title_option {
-                        Some(title) => {
-                            if urls.lock().unwrap().contains(url) {
-                                println!("Skipping already seen feed: {} [{}]", title, url);
+                                println!("Processing feed: {} [{}]", title, url);
+                                process_feed(url, index, urls, counters).unwrap_or_default();
                             }
-                            urls.lock().unwrap().insert(url.to_string());
-
-                            println!("Processing feed: {} [{}]", title, url);
-                            process_feed(url, index, urls, counters).unwrap_or_default();
+                            None => return,
                         }
-                        None => return,
                     }
-                }
-                None => return,
-            };
-        });
-        //*f_c = *f_c - 1;
-        //counters.feeds_count.condvar.notify_all();
+                    None => return,
+                };
+            });
+
+            handles.push(handle);
+        }
+        *f_c = *f_c - 1;
+        *t_c = *t_c - 1;
+        counters.feeds_count.condvar.notify_all();
     }
+
+    for handle in handles { handle.join(); }
+
     Result::Ok(())
 }
 
@@ -105,18 +117,23 @@ fn process_feed(
     let contents = reqwest::blocking::get(url)?.bytes()?;
     let channel = Channel::read_from(&contents[..])?;
     let items = channel.into_items();
+
+    let mut handles = Vec::<_>::new();
+
     for item in items {
-        let mut f_c = counters.feeds_count.mutex.lock().unwrap();
-        while *f_c > MAX_THREADS_FEEDS {
-            f_c = counters.feeds_count.condvar.wait(f_c).unwrap();
-        }
 
-        *f_c = *f_c + 1;
+        /*
+                let mut f_c = counters.feeds_count.mutex.lock().unwrap();
+                while *f_c > MAX_THREADS_FEEDS {
+                    f_c = counters.feeds_count.condvar.wait(f_c).unwrap();
+                }
 
+                *f_c = *f_c + 1;
+        */
         let urls = Arc::clone(&urls);
         let index = Arc::clone(&index);
 
-        thread::spawn(move || {
+        let handle = thread::spawn(move || {
             let url_option = item.link();
             match url_option {
                 Some(url) => {
@@ -134,7 +151,7 @@ fn process_feed(
                                                 "Skipping already seen article: {} [{}]",
                                                 title, url
                                             );
-                                            return
+                                            return;
                                         }
                                         urls.lock().unwrap().insert(url.to_string());
 
@@ -142,7 +159,8 @@ fn process_feed(
 
                                         let article =
                                             Article::new(url.to_string(), title.to_string());
-                                        let article_words = process_article(&article).unwrap_or_default();
+                                        let article_words =
+                                            process_article(&article).unwrap_or_default();
                                         index.lock().unwrap().add(
                                             site.to_string(),
                                             title.to_string(),
@@ -161,8 +179,12 @@ fn process_feed(
                 None => return,
             };
         });
+
+        handles.push(handle);
         //*f_c = *f_c - 1;
         //counters.feeds_count.condvar.notify_all();
     }
+
+    for handle in handles { handle.join(); }
     Result::Ok(())
 }
