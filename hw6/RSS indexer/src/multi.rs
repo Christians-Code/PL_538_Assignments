@@ -92,7 +92,6 @@ pub fn process_feed_file(file_name: &str, index: Arc<Mutex<ArticleIndex>>) -> Rs
                             println!("Processing feed: {} [{}]", title, url);
 
                             process_feed(url, index, urls, counters).unwrap_or_default();
-
                         }
                         None => return,
                     }
@@ -119,6 +118,13 @@ fn process_feed(
     urls: Arc<Mutex<HashSet<String>>>,
     counters: Arc<ThreadCount>,
 ) -> RssIndexResult<()> {
+    {
+        let mut f_c = counters.feeds_count.mutex.lock().unwrap(); // try get lock
+        let mut t_c = counters.total_count.mutex.lock().unwrap(); // try get lock
+        *f_c = *f_c - 1;
+        *t_c = *t_c - 1;
+        counters.feeds_count.condvar.notify_all();
+    }
     let contents = reqwest::blocking::get(url)?.bytes()?;
     let channel = Channel::read_from(&contents[..])?;
     let items = channel.into_items();
@@ -169,7 +175,11 @@ fn process_feed(
                                                         break;
                                                     } else {
                                                         std::mem::drop(t_c);
-                                                        s_c = counters.sites_count.condvar.wait(s_c).unwrap();
+                                                        s_c = counters
+                                                            .sites_count
+                                                            .condvar
+                                                            .wait(s_c)
+                                                            .unwrap();
                                                     }
                                                 }
                                             }
@@ -189,10 +199,10 @@ fn process_feed(
                                         );
 
                                         {
-                                            let mut t_c =
-                                                counters.total_count.mutex.lock().unwrap(); // try get lock
                                             let mut s_c =
                                                 counters.sites_count.mutex.lock().unwrap(); // try get lock
+                                            let mut t_c =
+                                                counters.total_count.mutex.lock().unwrap(); // try get lock
                                             if let Some(x) = s_c.get_mut(&site) {
                                                 *x = *x - 1;
                                                 *t_c = *t_c - 1;
@@ -216,19 +226,10 @@ fn process_feed(
         //*f_c = *f_c - 1;
         //counters.feeds_count.condvar.notify_all();
     }
-    {
-        let mut t_c = counters.total_count.mutex.lock().unwrap(); // try get lock
-        let mut f_c = counters.feeds_count.mutex.lock().unwrap(); // try get lock
-        *f_c = *f_c - 1;
-        *t_c = *t_c - 1;
-        counters.feeds_count.condvar.notify_all();
-    }
 
     for handle in handles {
         handle.join();
     }
-
-
 
     Result::Ok(())
 }
