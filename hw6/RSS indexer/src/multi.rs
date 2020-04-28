@@ -118,13 +118,6 @@ fn process_feed(
     urls: Arc<Mutex<HashSet<String>>>,
     counters: Arc<ThreadCount>,
 ) -> RssIndexResult<()> {
-    {
-        let mut f_c = counters.feeds_count.mutex.lock().unwrap(); // try get lock
-        let mut t_c = counters.total_count.mutex.lock().unwrap(); // try get lock
-        *f_c = *f_c - 1;
-        *t_c = *t_c - 1;
-        counters.feeds_count.condvar.notify_all();
-    }
     let contents = reqwest::blocking::get(url)?.bytes()?;
     let channel = Channel::read_from(&contents[..])?;
     let items = channel.into_items();
@@ -223,12 +216,18 @@ fn process_feed(
         });
 
         handles.push(handle);
-        //*f_c = *f_c - 1;
-        //counters.feeds_count.condvar.notify_all();
     }
 
     for handle in handles {
         handle.join();
+    }
+
+    {
+        let mut f_c = counters.feeds_count.mutex.lock().unwrap(); // try get lock
+        let mut t_c = counters.total_count.mutex.lock().unwrap(); // try get lock
+        *f_c = *f_c - 1;
+        *t_c = *t_c - 1;
+        counters.feeds_count.condvar.notify_all();
     }
 
     Result::Ok(())
