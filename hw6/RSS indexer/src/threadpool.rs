@@ -18,7 +18,36 @@ impl ThreadPool {
     /// thread should loop and (1) listen for new jobs on the channel, (2) execute received jobs,
     /// and (3) quit the loop if it receives None.
     pub fn new(num_workers: usize) -> Self {
-        todo!()
+        let (tx, rx): (mpsc::Sender<JobMsg>, _) = mpsc::channel();
+
+        let rx = Arc::new(Mutex::new(rx));
+
+        let mut vec: Vec<thread::JoinHandle<()>> = Vec::new();
+
+        for _ in 0..num_workers {
+            let rx = rx.clone();
+
+            let handle = thread::spawn(move || loop {
+                match rx.lock().unwrap().recv() {
+                    Ok(msg) => {
+                        match msg {
+                            Some(job) => {
+                                job();
+                            }
+                            None => break,
+                        };
+                    }
+                    Err(_) => {}
+                }
+            });
+
+            vec.push(handle);
+        }
+
+        ThreadPool {
+            sender: tx,
+            workers: vec,
+        }
     }
 
     /// Push a new job into the thread pool.
@@ -26,7 +55,7 @@ impl ThreadPool {
     where
         F: FnOnce() + Send + 'static,
     {
-        todo!()
+        self.sender.send(Some(Box::new(job))).unwrap();
     }
 }
 
@@ -34,6 +63,16 @@ impl Drop for ThreadPool {
     /// Clean up the thread pool. Send a kill message (None) to each worker, and join each worker.
     /// This function should only return when all workers have finished.
     fn drop(&mut self) {
-        todo!()
+        for _ in &self.workers {
+            self.sender.send(None).unwrap();
+        }
+        
+        let total_workers = self.workers.len();
+
+        for _ in 0..total_workers {
+            if let Some(worker) = self.workers.pop(){
+                worker.join();
+            }
+        }
     }
 }
