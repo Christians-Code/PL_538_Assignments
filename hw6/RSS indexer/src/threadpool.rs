@@ -28,16 +28,12 @@ impl ThreadPool {
             let rx = rx.clone();
 
             let handle = thread::spawn(move || loop {
-                match rx.lock().unwrap().recv() {
-                    Ok(msg) => {
-                        match msg {
-                            Some(job) => {
-                                job();
-                            }
-                            None => break,
-                        };
-                    }
-                    Err(_) => {}
+                match rx.lock().unwrap().recv().unwrap() {
+                    Some(job) => {
+                        println!("Completed");
+                        job();
+                    },
+                    None => break
                 }
             });
 
@@ -63,15 +59,15 @@ impl Drop for ThreadPool {
     /// Clean up the thread pool. Send a kill message (None) to each worker, and join each worker.
     /// This function should only return when all workers have finished.
     fn drop(&mut self) {
-        for _ in &self.workers {
-            self.sender.send(None).unwrap();
-        }
-        
         let total_workers = self.workers.len();
 
         for _ in 0..total_workers {
-            if let Some(worker) = self.workers.pop(){
-                worker.join();
+            self.sender.send(None).unwrap();
+        }
+
+        for _ in 0..total_workers {
+            if let Some(worker) = self.workers.pop() {
+                worker.join().unwrap();
             }
         }
     }

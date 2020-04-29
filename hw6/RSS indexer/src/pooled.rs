@@ -18,7 +18,41 @@ const SIZE_SITES_POOL: usize = 20;
 /// one for handling feeds, and one for handling articles. Use the sizes above. Push closures
 /// executing `process_feed` into the thread pool.
 pub fn process_feed_file(file_name: &str, index: Arc<Mutex<ArticleIndex>>) -> RssIndexResult<()> {
-    todo!()
+    let file = File::open(file_name)?;
+    println!("Processing feed file: {}", file_name);
+
+    let channel = Channel::read_from(BufReader::new(file))?;
+    let urls = Arc::new(Mutex::new(HashSet::new()));
+    let feed_pool = Arc::new(Mutex::new(ThreadPool::new(SIZE_FEEDS_POOL)));
+    let sites_pool = Arc::new(Mutex::new(ThreadPool::new(SIZE_SITES_POOL)));
+
+    for feed in channel.into_items() {
+        let url = feed.link().ok_or(RssIndexError::UrlError)?;
+        let title = feed.title().ok_or(RssIndexError::UrlError)?;
+
+        if urls.lock().unwrap().contains(url) {
+            println!("Skipping already seen feed: {} [{}]", title, url);
+            continue;
+        }
+        urls.lock().unwrap().insert(url.to_string());
+
+        println!("Processing feed: {} [{}]", title, url);
+
+        let urls = Arc::clone(&urls);
+
+        let index = Arc::clone(&index);
+
+        let sites_pool = Arc::clone(&sites_pool);
+
+        let url = url.to_string();
+
+        let job = move || {
+            process_feed(&url, index, urls, sites_pool).unwrap_or_default();
+        };
+
+        feed_pool.lock().unwrap().execute(job);
+    }
+    Result::Ok(())
 }
 
 /// Same as the single/multi threaded version, but using a thread pool. Push closures executing
@@ -29,5 +63,43 @@ fn process_feed(
     urls: Arc<Mutex<HashSet<String>>>,
     sites_pool: Arc<Mutex<ThreadPool>>,
 ) -> RssIndexResult<()> {
-    todo!()
+    let contents = reqwest::blocking::get(url)?.bytes()?;
+    let channel = Channel::read_from(&contents[..])?;
+    let items = channel.into_items();
+    for item in items {
+        let (url, site, title) = match (item.link(), Url::parse(&url)?.host_str(), item.title()) {
+            (Some(u), Some(s), Some(t)) => (u, s.to_string(), t),
+            _ => continue,
+        };
+
+        if urls.lock().unwrap().contains(url) {
+            println!("Skipping already seen article: {} [{}]", title, url);
+            continue;
+        }
+        urls.lock().unwrap().insert(url.to_string());
+
+        println!("Processing article: {} [{}]", title, url);
+
+        let article = Article::new(url.to_string(), title.to_string());
+
+        let index = Arc::clone(&index);
+
+        let url = url.to_string();
+
+        let title = title.to_string();
+
+        let job = move || {
+            let article_words = process_article(&article).unwrap_or_default();
+            index.lock().unwrap().add(
+                site.to_string(),
+                title.to_string(),
+                url,
+                article_words,
+            );
+        };
+
+        sites_pool.lock().unwrap().execute(job);
+
+    }
+    Result::Ok(())
 }
