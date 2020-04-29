@@ -92,11 +92,13 @@ pub fn process_feed_file(file_name: &str, index: Arc<Mutex<ArticleIndex>>) -> Rs
                             println!("Processing feed: {} [{}]", title, url);
 
                             process_feed(url, index, urls, counters).unwrap_or_default();
+
+                            return ();
                         }
-                        None => return,
+                        None => return (),
                     }
                 }
-                None => return,
+                None => return (),
             };
         });
 
@@ -202,16 +204,17 @@ fn process_feed(
                                             }
                                             counters.sites_count.condvar.notify_all();
                                         }
+                                        return ();
                                     }
-                                    None => return,
+                                    None => return (),
                                 },
-                                Err(_) => return,
+                                Err(_) => return (),
                             };
                         }
-                        None => return,
+                        None => return (),
                     }
                 }
-                None => return,
+                None => return (),
             };
         });
 
