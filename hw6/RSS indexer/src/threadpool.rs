@@ -25,16 +25,15 @@ impl ThreadPool {
         let mut vec: Vec<thread::JoinHandle<()>> = Vec::new();
 
         for _ in 0..num_workers {
-            let rx = rx.clone();
+            let rx =  Arc::clone(&rx);
 
             let handle = thread::spawn(move || loop {
                 match rx.lock().unwrap().recv().unwrap() {
-                    Some(job) => {
-                        println!("Completed");
-                        job();
-                    },
-                    None => break
-                }
+                            Some(job) => {
+                                job();
+                            }
+                            None => break,
+                        };
             });
 
             vec.push(handle);
@@ -60,6 +59,7 @@ impl Drop for ThreadPool {
     /// This function should only return when all workers have finished.
     fn drop(&mut self) {
         let total_workers = self.workers.len();
+        println!("Total threads - {}", total_workers);
 
         for _ in 0..total_workers {
             self.sender.send(None).unwrap();
@@ -67,7 +67,7 @@ impl Drop for ThreadPool {
 
         for _ in 0..total_workers {
             if let Some(worker) = self.workers.pop() {
-                worker.join().unwrap();
+                worker.join();
             }
         }
     }
