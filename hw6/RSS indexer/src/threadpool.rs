@@ -72,7 +72,7 @@ impl Drop for ThreadPool {
 
         for _ in 0..total_workers {
             if let Some(worker) = self.workers.pop() {
-                worker.join();
+                worker.join().unwrap();
             }
         }
     }

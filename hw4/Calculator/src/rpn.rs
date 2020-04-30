@@ -89,7 +89,8 @@ impl Stack {
                             _ => Err(Error::Type),
                         }
                     }
-                    _ => Err(Error::Type),
+                    _ => {
+                        Err(Error::Type)},
                 }
             }
             Op::Eq => {

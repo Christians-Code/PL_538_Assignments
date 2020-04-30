@@ -63,14 +63,15 @@ pub fn process_feed_file(file_name: &str, index: Arc<Mutex<ArticleIndex>>) -> Rs
         let index = Arc::clone(&index);
 
         let handle = thread::spawn(move || {
-            let url_option = feed.link();
+            let url_option = feed.link().ok_or(RssIndexError::UrlError);
             match url_option {
-                Some(url) => {
-                    let title_option = feed.title();
+                Ok(url) => {
+                    let title_option = feed.title().ok_or(RssIndexError::UrlError);
                     match title_option {
-                        Some(title) => {
+                        Ok(title) => {
                             if urls.lock().unwrap().contains(url) {
                                 println!("Skipping already seen feed: {} [{}]", title, url);
+                                return ();
                             }
                             urls.lock().unwrap().insert(url.to_string());
 
@@ -95,10 +96,16 @@ pub fn process_feed_file(file_name: &str, index: Arc<Mutex<ArticleIndex>>) -> Rs
 
                             return ();
                         }
-                        None => return (),
+                        Err(e) => {
+                            println!("{}", e);
+                            return ();
+                        }
                     }
                 }
-                None => return (),
+                Err(e) => {
+                    println!("{}", e);
+                    return ();
+                }
             };
         });
 
@@ -106,7 +113,7 @@ pub fn process_feed_file(file_name: &str, index: Arc<Mutex<ArticleIndex>>) -> Rs
     }
 
     for handle in handles {
-        handle.join();
+        handle.join().unwrap();
     }
 
     Result::Ok(())
@@ -132,12 +139,12 @@ fn process_feed(
         let index = Arc::clone(&index);
 
         let handle = thread::spawn(move || {
-            let url_option = item.link();
+            let url_option = item.link().ok_or(RssIndexError::UrlError);
             match url_option {
-                Some(url) => {
-                    let title_option = item.title();
+                Ok(url) => {
+                    let title_option = item.title().ok_or(RssIndexError::UrlError);
                     match title_option {
-                        Some(title) => {
+                        Ok(title) => {
                             let site_result = Url::parse(&url);
                             match site_result {
                                 Ok(site_option) => match site_option.host_str() {
@@ -148,7 +155,7 @@ fn process_feed(
                                                 "Skipping already seen article: {} [{}]",
                                                 title, url
                                             );
-                                            return;
+                                            return ();
                                         }
                                         urls.lock().unwrap().insert(url.to_string());
 
@@ -211,10 +218,16 @@ fn process_feed(
                                 Err(_) => return (),
                             };
                         }
-                        None => return (),
+                        Err(e) => {
+                            println!("{}", e);
+                            return ();
+                        }
                     }
                 }
-                None => return (),
+                Err(e) => {
+                    println!("{}", e);
+                    return ();
+                }
             };
         });
 
@@ -222,7 +235,7 @@ fn process_feed(
     }
 
     for handle in handles {
-        handle.join();
+        handle.join().unwrap();
     }
 
     {
