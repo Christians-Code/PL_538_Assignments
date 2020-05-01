@@ -58,55 +58,39 @@ pub fn process_feed_file(file_name: &str, index: Arc<Mutex<ArticleIndex>>) -> Rs
     let mut handles = Vec::<_>::new();
 
     for feed in channel.into_items() {
+        let (url, title) = match (feed.link(), feed.title()) {
+            (Some(u), Some(t)) => (u.to_string(), t.to_string()),
+            _ => continue,
+        };
+
+        if urls.lock().unwrap().contains(&url) {
+            println!("Skipping already seen feed: {} [{}]", title, url);
+            continue;
+        }
+        urls.lock().unwrap().insert(url.to_string());
+
+        {
+            let mut f_c = counters.feeds_count.mutex.lock().unwrap(); // try get lock
+            loop {
+                let mut t_c = counters.total_count.mutex.lock().unwrap(); // try get lock
+                if *f_c < MAX_THREADS_FEEDS && *t_c < MAX_THREADS_TOTAL {
+                    *f_c = *f_c + 1;
+                    *t_c = *t_c + 1;
+                    break;
+                } else {
+                    std::mem::drop(t_c);
+                    f_c = counters.feeds_count.condvar.wait(f_c).unwrap();
+                }
+            }
+        }
+
         let counters = Arc::clone(&counters);
         let urls = Arc::clone(&urls);
         let index = Arc::clone(&index);
 
         let handle = thread::spawn(move || {
-            let url_option = feed.link().ok_or(RssIndexError::UrlError);
-            match url_option {
-                Ok(url) => {
-                    let title_option = feed.title().ok_or(RssIndexError::UrlError);
-                    match title_option {
-                        Ok(title) => {
-                            if urls.lock().unwrap().contains(url) {
-                                println!("Skipping already seen feed: {} [{}]", title, url);
-                                return ();
-                            }
-                            urls.lock().unwrap().insert(url.to_string());
-
-                            {
-                                let mut f_c = counters.feeds_count.mutex.lock().unwrap(); // try get lock
-                                loop {
-                                    let mut t_c = counters.total_count.mutex.lock().unwrap(); // try get lock
-                                    if *f_c < MAX_THREADS_FEEDS && *t_c < MAX_THREADS_TOTAL {
-                                        *f_c = *f_c + 1;
-                                        *t_c = *t_c + 1;
-                                        break;
-                                    } else {
-                                        std::mem::drop(t_c);
-                                        f_c = counters.feeds_count.condvar.wait(f_c).unwrap();
-                                    }
-                                }
-                            }
-
-                            println!("Processing feed: {} [{}]", title, url);
-
-                            process_feed(url, index, urls, counters).unwrap_or_default();
-
-                            return ();
-                        }
-                        Err(e) => {
-                            println!("{}", e);
-                            return ();
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("{}", e);
-                    return ();
-                }
-            };
+            println!("Processing feed: {} [{}]", title, url);
+            process_feed(&url, index, urls, counters).unwrap_or_default();
         });
 
         handles.push(handle);
@@ -134,103 +118,61 @@ fn process_feed(
     let mut handles = Vec::<_>::new();
 
     for item in items {
+        let (url, site, title) = match (item.link(), Url::parse(&url)?.host_str(), item.title()) {
+            (Some(u), Some(s), Some(t)) => (u.to_string(), s.to_string(), t.to_string()),
+            _ => continue,
+        };
+
+        if urls.lock().unwrap().contains(&url) {
+            println!("Skipping already seen article: {} [{}]", title, url);
+            continue;
+        }
+        urls.lock().unwrap().insert(url.to_string());
+        {
+            let mut s_c = counters.sites_count.mutex.lock().unwrap(); // try get lock
+            loop {
+                let mut t_c = counters.total_count.mutex.lock().unwrap(); // try get lock
+
+                s_c.entry(site.clone()).or_insert(0);
+
+                if let Some(x) = s_c.get_mut(&site) {
+                    if *x < MAX_THREADS_SITES && *t_c < MAX_THREADS_TOTAL {
+                        *x = *x + 1;
+                        *t_c = *t_c + 1;
+                        break;
+                    } else {
+                        std::mem::drop(t_c);
+                        s_c = counters.sites_count.condvar.wait(s_c).unwrap();
+                    }
+                }
+            }
+        }
+
         let counters = Arc::clone(&counters);
-        let urls = Arc::clone(&urls);
         let index = Arc::clone(&index);
 
         let handle = thread::spawn(move || {
-            let url_option = item.link().ok_or(RssIndexError::UrlError);
-            match url_option {
-                Ok(url) => {
-                    let title_option = item.title().ok_or(RssIndexError::UrlError);
-                    match title_option {
-                        Ok(title) => {
-                            let site_result = Url::parse(&url);
-                            match site_result {
-                                Ok(site_option) => match site_option.host_str() {
-                                    Some(site_1) => {
-                                        let site = site_1.to_string();
-                                        if urls.lock().unwrap().contains(url) {
-                                            println!(
-                                                "Skipping already seen article: {} [{}]",
-                                                title, url
-                                            );
-                                            return ();
-                                        }
-                                        urls.lock().unwrap().insert(url.to_string());
+            println!("Processing article: {} [{}]", title, url);
 
-                                        {
-                                            let mut s_c =
-                                                counters.sites_count.mutex.lock().unwrap(); // try get lock
-                                            loop {
-                                                let mut t_c =
-                                                    counters.total_count.mutex.lock().unwrap(); // try get lock
+            let article = Article::new(url.to_string(), title.to_string());
+            let article_words = process_article(&article).unwrap_or_default();
+            index.lock().unwrap().add(
+                site.to_string(),
+                title.to_string(),
+                url.to_string(),
+                article_words,
+            );
 
-                                                s_c.entry(site.clone()).or_insert(0);
-
-                                                if let Some(x) = s_c.get_mut(&site) {
-                                                    if *x < MAX_THREADS_SITES
-                                                        && *t_c < MAX_THREADS_TOTAL
-                                                    {
-                                                        *x = *x + 1;
-                                                        *t_c = *t_c + 1;
-                                                        break;
-                                                    } else {
-                                                        std::mem::drop(t_c);
-                                                        s_c = counters
-                                                            .sites_count
-                                                            .condvar
-                                                            .wait(s_c)
-                                                            .unwrap();
-                                                    }
-                                                }
-                                            }
-                                        }
-
-                                        println!("Processing article: {} [{}]", title, url);
-
-                                        let article =
-                                            Article::new(url.to_string(), title.to_string());
-                                        let article_words =
-                                            process_article(&article).unwrap_or_default();
-                                        index.lock().unwrap().add(
-                                            site.to_string(),
-                                            title.to_string(),
-                                            url.to_string(),
-                                            article_words,
-                                        );
-
-                                        {
-                                            let mut s_c =
-                                                counters.sites_count.mutex.lock().unwrap(); // try get lock
-                                            let mut t_c =
-                                                counters.total_count.mutex.lock().unwrap(); // try get lock
-                                            if let Some(x) = s_c.get_mut(&site) {
-                                                *x = *x - 1;
-                                                *t_c = *t_c - 1;
-                                            }
-                                            counters.sites_count.condvar.notify_all();
-                                        }
-                                        return ();
-                                    }
-                                    None => return (),
-                                },
-                                Err(_) => return (),
-                            };
-                        }
-                        Err(e) => {
-                            println!("{}", e);
-                            return ();
-                        }
-                    }
+            {
+                let mut s_c = counters.sites_count.mutex.lock().unwrap(); // try get lock
+                let mut t_c = counters.total_count.mutex.lock().unwrap(); // try get lock
+                if let Some(x) = s_c.get_mut(&site) {
+                    *x = *x - 1;
+                    *t_c = *t_c - 1;
                 }
-                Err(e) => {
-                    println!("{}", e);
-                    return ();
-                }
-            };
+                counters.sites_count.condvar.notify_all();
+            }
         });
-
         handles.push(handle);
     }
 

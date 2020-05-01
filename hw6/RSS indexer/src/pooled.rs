@@ -29,40 +29,24 @@ pub fn process_feed_file(file_name: &str, index: Arc<Mutex<ArticleIndex>>) -> Rs
     let sites_pool = Arc::new(Mutex::new(ThreadPool::new(SIZE_SITES_POOL)));
 
     for feed in channel.into_items() {
+        let (url, title) = match (feed.link(), feed.title()) {
+            (Some(u), Some(t)) => (u.to_string(), t.to_string()),
+            _ => continue,
+        };
+
+        if urls.lock().unwrap().contains(&url) {
+            println!("Skipping already seen feed: {} [{}]", title, url);
+            continue;
+        }
+        urls.lock().unwrap().insert(url.to_string());
+
         let urls = Arc::clone(&urls);
         let index = Arc::clone(&index);
         let sites_pool = Arc::clone(&sites_pool);
 
         feed_pool.lock().unwrap().execute(move || {
-            let url_option = feed.link().ok_or(RssIndexError::UrlError);
-            match url_option {
-                Ok(url) => {
-                    let title_option = feed.title().ok_or(RssIndexError::UrlError);
-                    match title_option {
-                        Ok(title) => {
-                            if urls.lock().unwrap().contains(url) {
-                                println!("Skipping already seen feed: {} [{}]", title, url);
-                                return ();
-                            }
-                            urls.lock().unwrap().insert(url.to_string());
-
-                            println!("Processing feed: {} [{}]", title, url);
-
-                            process_feed(url, index, urls, sites_pool).unwrap_or_default();
-
-                            return ();
-                        }
-                        Err(e) => {
-                            println!("{}", e);
-                            return ();
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("{}", e);
-                    return ();
-                }
-            };
+            println!("Processing feed: {} [{}]", title, url);
+            process_feed(&url, index, urls, sites_pool).unwrap_or_default();
         });
     }
 
@@ -82,61 +66,30 @@ fn process_feed(
     let items = channel.into_items();
 
     for item in items {
-        let urls = Arc::clone(&urls);
+        let (url, site, title) = match (item.link(), Url::parse(&url)?.host_str(), item.title()) {
+            (Some(u), Some(s), Some(t)) => (u.to_string(), s.to_string(), t.to_string()),
+            _ => continue,
+        };
+
+        if urls.lock().unwrap().contains(&url) {
+            println!("Skipping already seen article: {} [{}]", title, url);
+            continue;
+        }
+        urls.lock().unwrap().insert(url.to_string());
+
         let index = Arc::clone(&index);
 
         sites_pool.lock().unwrap().execute(move || {
-            let url_option = item.link().ok_or(RssIndexError::UrlError);
-            match url_option {
-                Ok(url) => {
-                    let title_option = item.title().ok_or(RssIndexError::UrlError);
-                    match title_option {
-                        Ok(title) => {
-                            let site_result = Url::parse(&url);
-                            match site_result {
-                                Ok(site_option) => match site_option.host_str() {
-                                    Some(site_1) => {
-                                        let site = site_1.to_string();
-                                        if urls.lock().unwrap().contains(url) {
-                                            println!(
-                                                "Skipping already seen article: {} [{}]",
-                                                title, url
-                                            );
-                                            return;
-                                        }
-                                        urls.lock().unwrap().insert(url.to_string());
+            println!("Processing article: {} [{}]", title, url);
 
-                                        println!("Processing article: {} [{}]", title, url);
-
-                                        let article =
-                                            Article::new(url.to_string(), title.to_string());
-                                        let article_words =
-                                            process_article(&article).unwrap_or_default();
-                                        index.lock().unwrap().add(
-                                            site.to_string(),
-                                            title.to_string(),
-                                            url.to_string(),
-                                            article_words,
-                                        );
-
-                                        return ();
-                                    }
-                                    None => return (),
-                                },
-                                Err(_) => return (),
-                            };
-                        }
-                        Err(e) => {
-                            println!("{}", e);
-                            return ();
-                        }
-                    }
-                }
-                Err(e) => {
-                    println!("{}", e);
-                    return ();
-                }
-            };
+            let article = Article::new(url.to_string(), title.to_string());
+            let article_words = process_article(&article).unwrap_or_default();
+            index.lock().unwrap().add(
+                site.to_string(),
+                title.to_string(),
+                url.to_string(),
+                article_words,
+            );
         });
     }
 
